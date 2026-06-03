@@ -1,7 +1,7 @@
 package main
 
 import (
-	"vextpss/source/commands"
+	commands "vextpss/source/cmd"
 )
 
 func main() {
