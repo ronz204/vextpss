@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"vextpss/source/commands"
+)
 
 func main() {
-	fmt.Println("Hello from Source!!!")
+	commands.Execute()
 }
