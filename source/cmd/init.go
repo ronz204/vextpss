@@ -35,9 +35,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("could not access underlying db: %w", err)
+	}
+	defer sqlDB.Close()
 
-	// Apply the schema (idempotent — CREATE TABLE IF NOT EXISTS).
+	// Apply the schema (idempotent — AutoMigrate).
 	if err := database.Migrate(db); err != nil {
 		return err
 	}

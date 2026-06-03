@@ -44,7 +44,11 @@ func runRm(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("could not access underlying db: %w", err)
+	}
+	defer sqlDB.Close()
 
 	if err := database.DeleteByName(db, name); errors.Is(err, database.ErrNotFound) {
 		return fmt.Errorf("[X] Error: no credential named %q found", name)
