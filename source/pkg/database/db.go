@@ -1,42 +1,32 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 
-	_ "modernc.org/sqlite"
+	"vextpss/source/pkg/models"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-const schema = `
-CREATE TABLE IF NOT EXISTS secrets (
-    id                INTEGER  PRIMARY KEY AUTOINCREMENT,
-    name              TEXT     UNIQUE NOT NULL,
-    type              TEXT     NOT NULL,
-    salt              BLOB     NOT NULL,
-    nonce             BLOB     NOT NULL,
-    encrypted_payload BLOB     NOT NULL,
-    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP
-);`
-
-// Open opens a connection to the SQLite database at the given path.
-// The caller is responsible for closing the returned *sql.DB.
-func Open(path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path)
+// Open opens a GORM connection to the SQLite database at the given path.
+// Logger is set to Silent so SQL never leaks to the CLI user's stdout.
+// The caller is responsible for closing the underlying *sql.DB via db.DB().
+func Open(path string) (*gorm.DB, error) {
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %w", err)
-	}
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
 	return db, nil
 }
 
-// Migrate applies the schema to the database. It is safe to call multiple times
-// because it uses CREATE TABLE IF NOT EXISTS.
-func Migrate(db *sql.DB) error {
-	if _, err := db.Exec(schema); err != nil {
+// Migrate runs AutoMigrate to create or update the secrets table schema.
+// It is safe to call multiple times — GORM only adds missing columns/indexes.
+func Migrate(db *gorm.DB) error {
+	if err := db.AutoMigrate(&models.SecretRecord{}); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 	return nil
