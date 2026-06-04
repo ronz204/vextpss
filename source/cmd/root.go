@@ -1,31 +1,15 @@
-package commands
+package cmd
 
-import (
-	"fmt"
-	"os"
+import "github.com/spf13/cobra"
 
-	"github.com/spf13/cobra"
-)
-
-var RootCmd = &cobra.Command{
-	Use:           "vext",
-	Short:         "A local-first CLI password manager",
-	Long:          "Vext stores and retrieves credentials securely using AES-256-GCM encryption and Argon2id key derivation. All data lives on your machine — no cloud, no accounts.",
-	SilenceErrors: true,
-	SilenceUsage:  true,
-}
-
-func init() {
-	RootCmd.AddCommand(initCmd)
-	RootCmd.AddCommand(addCmd)
-	RootCmd.AddCommand(getCmd)
-	RootCmd.AddCommand(listCmd)
-	RootCmd.AddCommand(rmCmd)
-}
-
-func Execute() {
-	if err := RootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+// NewRootCmd builds the root Cobra command. Sub-commands are registered in main.go
+// so dependency injection can be performed before the command tree is assembled.
+func NewRootCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:           "vext",
+		Short:         "A local-first CLI password manager",
+		Long:          "Vext stores and retrieves credentials securely using AES-256-GCM encryption and Argon2id key derivation. All data lives on your machine — no cloud, no accounts.",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 }
