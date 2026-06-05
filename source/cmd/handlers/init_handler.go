@@ -3,17 +3,17 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"vextpss/source/pkg/application"
+	"vextpss/source/pkg/apps"
 
 	"github.com/spf13/cobra"
 )
 
 // InitHandler handles the `vext init` command.
 type InitHandler struct {
-	uc *application.InitStorageUC
+	uc *apps.InitStorageUC
 }
 
-func NewInitHandler(uc *application.InitStorageUC) *InitHandler {
+func NewInitHandler(uc *apps.InitStorageUC) *InitHandler {
 	return &InitHandler{uc: uc}
 }
 

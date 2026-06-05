@@ -3,20 +3,21 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"vextpss/source/cmd/ui"
-	"vextpss/source/pkg/application"
-	"vextpss/source/pkg/domain"
+
+	"vextpss/source/cmd/helpers"
+	"vextpss/source/core"
+	"vextpss/source/pkg/apps"
 
 	"github.com/spf13/cobra"
 )
 
 // AddHandler handles the `vext add <name>` command.
 type AddHandler struct {
-	uc       *application.StoreSecretUC
-	prompter ui.Prompter
+	uc       *apps.StoreSecretUC
+	prompter helpers.Prompter
 }
 
-func NewAddHandler(uc *application.StoreSecretUC, prompter ui.Prompter) *AddHandler {
+func NewAddHandler(uc *apps.StoreSecretUC, prompter helpers.Prompter) *AddHandler {
 	return &AddHandler{uc: uc, prompter: prompter}
 }
 
@@ -50,7 +51,7 @@ func (h *AddHandler) Handle(ctx context.Context, name string) error {
 	}
 	defer h.prompter.Zero(masterPassword)
 
-	req := application.StoreSecretRequest{
+	req := apps.StoreSecretRequest{
 		Name:            name,
 		Type:            "account",
 		MasterPassword:  masterPassword,
@@ -59,11 +60,11 @@ func (h *AddHandler) Handle(ctx context.Context, name string) error {
 	}
 
 	if err := h.uc.Execute(ctx, req); err != nil {
-		if domain.IsAlreadyExists(err) {
+		if core.IsAlreadyExists(err) {
 			fmt.Printf("[X] Error: a credential named %q already exists. Use `vext rm` then `vext add` to replace it.\n", name)
 			return nil
 		}
-		if domain.IsDomainError(err) {
+		if core.IsDomainError(err) {
 			fmt.Printf("[X] %s\n", err)
 			return nil
 		}

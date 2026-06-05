@@ -2,14 +2,16 @@ package helpers
 
 import (
 	"fmt"
-	"vextpss/source/pkg/domain"
+
+	"vextpss/source/core"
+	"vextpss/source/core/secrets"
 	"vextpss/source/pkg/shared"
 )
 
 // PrintSecret displays a decrypted secret to stdout in a human-readable format.
-func PrintSecret(name string, payload domain.SecretPayload) {
+func PrintSecret(name string, payload core.SecretPayload) {
 	switch p := payload.(type) {
-	case *domain.AccountSecret:
+	case *secrets.AccountSecret:
 		fmt.Printf("Service:  %s\n", name)
 		fmt.Printf("Username: %s\n", p.Username)
 		fmt.Printf("Password: %s\n", p.Password)
@@ -20,7 +22,7 @@ func PrintSecret(name string, payload domain.SecretPayload) {
 }
 
 // PrintSecretList displays a table of secret metadata.
-func PrintSecretList(secrets []domain.Secret) {
+func PrintSecretList(secrets []core.Secret) {
 	if len(secrets) == 0 {
 		fmt.Println("No secrets stored. Use `vext add <name>` to add one.")
 		return

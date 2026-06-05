@@ -3,20 +3,21 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"vextpss/source/cmd/ui"
-	"vextpss/source/pkg/application"
-	"vextpss/source/pkg/domain"
+
+	"vextpss/source/cmd/helpers"
+	"vextpss/source/core"
+	"vextpss/source/pkg/apps"
 
 	"github.com/spf13/cobra"
 )
 
 // RmHandler handles the `vext rm <name>` command.
 type RmHandler struct {
-	uc       *application.DeleteSecretUC
-	prompter ui.Prompter
+	uc       *apps.DeleteSecretUC
+	prompter helpers.Prompter
 }
 
-func NewRmHandler(uc *application.DeleteSecretUC, prompter ui.Prompter) *RmHandler {
+func NewRmHandler(uc *apps.DeleteSecretUC, prompter helpers.Prompter) *RmHandler {
 	return &RmHandler{uc: uc, prompter: prompter}
 }
 
@@ -45,7 +46,7 @@ func (h *RmHandler) Handle(ctx context.Context, name string) error {
 	}
 
 	if err := h.uc.Execute(ctx, name); err != nil {
-		if domain.IsNotFound(err) {
+		if core.IsNotFound(err) {
 			fmt.Printf("[X] Error: no credential named %q found.\n", name)
 			return nil
 		}

@@ -3,18 +3,19 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"vextpss/source/cmd/ui"
-	"vextpss/source/pkg/application"
+
+	"vextpss/source/cmd/helpers"
+	"vextpss/source/pkg/apps"
 
 	"github.com/spf13/cobra"
 )
 
 // ListHandler handles the `vext list` command.
 type ListHandler struct {
-	uc *application.ListSecretsUC
+	uc *apps.ListSecretsUC
 }
 
-func NewListHandler(uc *application.ListSecretsUC) *ListHandler {
+func NewListHandler(uc *apps.ListSecretsUC) *ListHandler {
 	return &ListHandler{uc: uc}
 }
 
@@ -37,6 +38,6 @@ func (h *ListHandler) Handle(ctx context.Context) error {
 		return nil
 	}
 
-	ui.PrintSecretList(secrets)
+	helpers.PrintSecretList(secrets)
 	return nil
 }

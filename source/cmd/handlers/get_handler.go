@@ -3,20 +3,21 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"vextpss/source/cmd/ui"
-	"vextpss/source/pkg/application"
-	"vextpss/source/pkg/domain"
+
+	"vextpss/source/cmd/helpers"
+	"vextpss/source/core"
+	"vextpss/source/pkg/apps"
 
 	"github.com/spf13/cobra"
 )
 
 // GetHandler handles the `vext get <name>` command.
 type GetHandler struct {
-	uc       *application.RetrieveSecretUC
-	prompter ui.Prompter
+	uc       *apps.RetrieveSecretUC
+	prompter helpers.Prompter
 }
 
-func NewGetHandler(uc *application.RetrieveSecretUC, prompter ui.Prompter) *GetHandler {
+func NewGetHandler(uc *apps.RetrieveSecretUC, prompter helpers.Prompter) *GetHandler {
 	return &GetHandler{uc: uc, prompter: prompter}
 }
 
@@ -39,18 +40,18 @@ func (h *GetHandler) Handle(ctx context.Context, name string) error {
 	}
 	defer h.prompter.Zero(masterPassword)
 
-	req := application.RetrieveSecretRequest{
+	req := apps.RetrieveSecretRequest{
 		Name:           name,
 		MasterPassword: masterPassword,
 	}
 
 	resp, err := h.uc.Execute(ctx, req)
 	if err != nil {
-		if domain.IsNotFound(err) {
+		if core.IsNotFound(err) {
 			fmt.Printf("[X] Error: no credential named %q found.\n", name)
 			return nil
 		}
-		if domain.IsDomainError(err) {
+		if core.IsDomainError(err) {
 			fmt.Printf("[X] %s\n", err)
 			return nil
 		}
@@ -58,6 +59,6 @@ func (h *GetHandler) Handle(ctx context.Context, name string) error {
 		return nil
 	}
 
-	ui.PrintSecret(resp.Name, resp.Payload)
+	helpers.PrintSecret(resp.Name, resp.Payload)
 	return nil
 }
