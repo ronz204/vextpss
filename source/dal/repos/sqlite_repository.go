@@ -82,10 +82,53 @@ func (r *SQLiteRepository) ListAll(ctx context.Context) ([]core.Secret, error) {
 	return secrets, nil
 }
 
+func (r *SQLiteRepository) GetAll(ctx context.Context) ([]dal.FullRecord, error) {
+	var records []dal.SecretRecord
+	result := r.db.WithContext(ctx).Order("name asc").Find(&records)
+	if result.Error != nil {
+		return nil, fmt.Errorf("get all failed: %w", result.Error)
+	}
+	full := make([]dal.FullRecord, len(records))
+	for i, rec := range records {
+		full[i] = dal.FullRecord{
+			Secret: core.Secret{
+				ID:        core.SecretID(rec.ID),
+				Name:      rec.Name,
+				Type:      rec.Type,
+				Salt:      rec.Salt,
+				Nonce:     rec.Nonce,
+				CreatedAt: rec.CreatedAt,
+				UpdatedAt: rec.UpdatedAt,
+			},
+			Encrypted: rec.Encrypted,
+		}
+	}
+	return full, nil
+}
+
 func (r *SQLiteRepository) Delete(ctx context.Context, name string) error {
 	result := r.db.WithContext(ctx).Where("name = ?", name).Delete(&dal.SecretRecord{})
 	if result.Error != nil {
 		return fmt.Errorf("delete failed: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return core.ErrSecretNotFound
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) Update(ctx context.Context, secret *core.Secret, encrypted []byte) error {
+	result := r.db.WithContext(ctx).
+		Model(&dal.SecretRecord{}).
+		Where("name = ?", secret.Name).
+		Updates(map[string]any{
+			"salt":       secret.Salt,
+			"nonce":      secret.Nonce,
+			"encrypted":  encrypted,
+			"updated_at": secret.UpdatedAt,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("update failed: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return core.ErrSecretNotFound
