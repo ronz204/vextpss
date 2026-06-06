@@ -26,7 +26,7 @@ func TestAddHandler_Handle_Success(t *testing.T) {
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "github"); err != nil {
+		if err := h.Handle(context.Background(), "github", false, 20, true); err != nil {
 			t.Errorf("Handle() error = %v", err)
 		}
 	})
@@ -52,7 +52,7 @@ func TestAddHandler_Handle_AlreadyExists(t *testing.T) {
 	h := newAddHandler(repo, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "github"); err != nil {
+		if err := h.Handle(context.Background(), "github", false, 20, true); err != nil {
 			t.Errorf("Handle() should not return error, got %v", err)
 		}
 	})
@@ -71,7 +71,7 @@ func TestAddHandler_Handle_DomainValidationError(t *testing.T) {
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "svc"); err != nil {
+		if err := h.Handle(context.Background(), "svc", false, 20, true); err != nil {
 			t.Errorf("Handle() should not return error, got %v", err)
 		}
 	})
@@ -87,7 +87,7 @@ func TestAddHandler_Handle_ReadLineError(t *testing.T) {
 	}
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
-	err := h.Handle(context.Background(), "svc")
+	err := h.Handle(context.Background(), "svc", false, 20, true)
 	if err == nil {
 		t.Fatal("Handle() should return error when ReadLine fails")
 	}
@@ -103,8 +103,29 @@ func TestAddHandler_Handle_ReadPasswordError(t *testing.T) {
 	}
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
-	err := h.Handle(context.Background(), "svc")
+	err := h.Handle(context.Background(), "svc", false, 20, true)
 	if err == nil {
 		t.Fatal("Handle() should return error when ReadPassword fails")
+	}
+}
+
+func TestAddHandler_Handle_Generate(t *testing.T) {
+	prompter := &helpers.MockPrompter{
+		LineResponse:  "alice",
+		PasswordBytes: []byte("masterpass"),
+	}
+	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+
+	out := captureStdout(t, func() {
+		if err := h.Handle(context.Background(), "twitter", true, 20, true); err != nil {
+			t.Errorf("Handle() with --generate error = %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "Generated password") {
+		t.Errorf("output %q should show generated password", out)
+	}
+	if !strings.Contains(out, "[✓]") {
+		t.Errorf("output %q should contain success marker [✓]", out)
 	}
 }

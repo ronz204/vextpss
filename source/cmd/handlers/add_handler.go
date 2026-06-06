@@ -7,6 +7,7 @@ import (
 	"vextpss/source/cmd/helpers"
 	"vextpss/source/core"
 	"vextpss/source/pkg/apps"
+	"vextpss/source/pkg/shared"
 
 	"github.com/spf13/cobra"
 )
@@ -22,26 +23,44 @@ func NewAddHandler(uc *apps.StoreSecretUC, prompter helpers.Prompter) *AddHandle
 }
 
 func (h *AddHandler) CobraCommand() *cobra.Command {
-	return &cobra.Command{
+	var generate bool
+	var genLength int
+	var genNoSymbols bool
+
+	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Store a new credential",
 		Long:  "Interactively stores a new account credential under the given name.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return h.Handle(context.Background(), args[0])
+			return h.Handle(context.Background(), args[0], generate, genLength, !genNoSymbols)
 		},
 	}
+	cmd.Flags().BoolVar(&generate, "generate", false, "Generate a random password instead of prompting")
+	cmd.Flags().IntVar(&genLength, "gen-length", 20, "Length of the generated password")
+	cmd.Flags().BoolVar(&genNoSymbols, "gen-no-symbols", false, "Exclude symbols from the generated password")
+	return cmd
 }
 
-func (h *AddHandler) Handle(ctx context.Context, name string) error {
+func (h *AddHandler) Handle(ctx context.Context, name string, generate bool, genLength int, genSymbols bool) error {
 	username, err := h.prompter.ReadLine("Username: ")
 	if err != nil {
 		return fmt.Errorf("could not read username: %w", err)
 	}
 
-	password, err := h.prompter.ReadPassword("Password: ")
-	if err != nil {
-		return fmt.Errorf("could not read password: %w", err)
+	var password []byte
+	if generate {
+		pw, err := shared.GeneratePassword(genLength, genSymbols)
+		if err != nil {
+			return fmt.Errorf("failed to generate password: %w", err)
+		}
+		password = []byte(pw)
+		fmt.Printf("Generated password: %s\n", pw)
+	} else {
+		password, err = h.prompter.ReadPassword("Password: ")
+		if err != nil {
+			return fmt.Errorf("could not read password: %w", err)
+		}
 	}
 	defer h.prompter.Zero(password)
 
@@ -61,7 +80,7 @@ func (h *AddHandler) Handle(ctx context.Context, name string) error {
 
 	if err := h.uc.Execute(ctx, req); err != nil {
 		if core.IsAlreadyExists(err) {
-			fmt.Printf("[X] Error: a credential named %q already exists. Use `vext rm` then `vext add` to replace it.\n", name)
+			fmt.Printf("[X] Error: a credential named %q already exists. Use `vext update` to modify it.\n", name)
 			return nil
 		}
 		if core.IsDomainError(err) {

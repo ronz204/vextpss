@@ -49,6 +49,9 @@ func main() {
 		retrieveUC *apps.RetrieveSecretUC
 		listUC     *apps.ListSecretsUC
 		deleteUC   *apps.DeleteSecretUC
+		updateUC   *apps.UpdateSecretUC
+		exportUC   *apps.ExportSecretsUC
+		importUC   *apps.ImportSecretsUC
 	)
 	if db != nil {
 		repo := repos.NewSQLiteRepository(db)
@@ -56,6 +59,9 @@ func main() {
 		retrieveUC = apps.NewRetrieveSecretUC(repo, encryptor)
 		listUC = apps.NewListSecretsUC(repo)
 		deleteUC = apps.NewDeleteSecretUC(repo)
+		updateUC = apps.NewUpdateSecretUC(repo, encryptor)
+		exportUC = apps.NewExportSecretsUC(repo, encryptor)
+		importUC = apps.NewImportSecretsUC(repo, encryptor)
 	}
 
 	// 5. Build CLI handlers.
@@ -66,6 +72,10 @@ func main() {
 	getHandler := handlers.NewGetHandler(retrieveUC, prompter)
 	listHandler := handlers.NewListHandler(listUC)
 	rmHandler := handlers.NewRmHandler(deleteUC, prompter)
+	genHandler := handlers.NewGenHandler()
+	updateHandler := handlers.NewUpdateHandler(updateUC, prompter)
+	exportHandler := handlers.NewExportHandler(exportUC, prompter)
+	importHandler := handlers.NewImportHandler(importUC, prompter)
 
 	// 6. Assemble command tree.
 	rootCmd := cmd.NewRootCmd()
@@ -74,6 +84,10 @@ func main() {
 	rootCmd.AddCommand(getHandler.CobraCommand())
 	rootCmd.AddCommand(listHandler.CobraCommand())
 	rootCmd.AddCommand(rmHandler.CobraCommand())
+	rootCmd.AddCommand(genHandler.CobraCommand())
+	rootCmd.AddCommand(updateHandler.CobraCommand())
+	rootCmd.AddCommand(exportHandler.CobraCommand())
+	rootCmd.AddCommand(importHandler.CobraCommand())
 
 	// 7. Execute.
 	if err := rootCmd.Execute(); err != nil {
