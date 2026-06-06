@@ -17,7 +17,10 @@ func (m *MockEncryptor) Encrypt(
 	if m.EncryptFn != nil {
 		return m.EncryptFn(ctx, plaintext, masterPassword)
 	}
-	return []byte("stub-salt-16byte"), []byte("stub-nonce-12b"), plaintext, nil
+	// Return a copy so callers that zero plaintext do not corrupt the returned ciphertext.
+	result := make([]byte, len(plaintext))
+	copy(result, plaintext)
+	return []byte("stub-salt-16byte"), []byte("stub-nonce-12b"), result, nil
 }
 
 func (m *MockEncryptor) Decrypt(
@@ -27,5 +30,8 @@ func (m *MockEncryptor) Decrypt(
 	if m.DecryptFn != nil {
 		return m.DecryptFn(ctx, masterPassword, salt, nonce, ciphertext)
 	}
-	return ciphertext, nil
+	// Return a copy so callers that zero the result do not corrupt the ciphertext in storage.
+	result := make([]byte, len(ciphertext))
+	copy(result, ciphertext)
+	return result, nil
 }
