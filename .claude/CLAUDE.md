@@ -23,9 +23,10 @@ vext/
 │   ├── features.md
 │   ├── workflows.md
 │   └── commands.md
-├── changes/                ← Work iterations (plan → xact)
+├── changes/                ← Work iterations (plan → xact → manu)
 │   └── 0001-architecture-refactor-plan.md    (what will change)
-│   └── 0001-architecture-refactor-xact.md    (what changed)
+│   └── 0001-architecture-refactor-xact.md    (what changed in the session)
+│   └── 0001-architecture-refactor-manu.md    (manual adjustments after the session)
 ├── source/                 ← The actual Go code
 │   ├── cmd/
 │   ├── pkg/
@@ -71,10 +72,11 @@ These documents are **the source of truth** for the project. They are not subjec
 
 `changes/` contains the **iterative history** of the project: work plans, refactors, and the results of implementing them.
 
-Each change has two documents:
+Each change has two required documents and one optional:
 
 1. **`NNNN-description-plan.md`** — The plan: what will change, why, and how.
-2. **`NNNN-description-xact.md`** — The outcome: what actually changed, what worked, what didn't, and why.
+2. **`NNNN-description-xact.md`** — The outcome of the planned session: what actually changed, what worked, what didn't, and why.
+3. **`NNNN-description-manu.md`** *(optional)* — Manual adjustments made after the session: renames, structural decisions, dependency swaps, or test additions that happened outside of any planned execution.
 
 ### Naming Convention
 
@@ -82,6 +84,7 @@ Each change has two documents:
 - `description` is a friendly slug name (e.g., `architecture-refactor`, `add-clipboard-support`).
 - `plan` means the **pre-implementation planning** document.
 - `xact` means the **actual execution** document (transaction, as in finance).
+- `manu` means a **manual adjustment** document — changes made by the developer directly after a `xact` session, outside of any planned or automated execution.
 
 ### Workflow
 
@@ -101,7 +104,15 @@ Each change has two documents:
    (What happened, what went well, what was different, lessons)
         │
         ▼
-5. Update context/ if necessary
+5. [Optional] Manual iteration after the session
+   (Developer refines names, structure, or dependencies by hand)
+        │
+        ▼
+6. Write NNNN-description-manu.md
+   (What manual adjustments were made; the gap between xact and final state)
+        │
+        ▼
+7. Update context/ if necessary
    (If behavior changed, reflect in overview/features/etc)
 ```
 
@@ -168,12 +179,56 @@ What we learned for next time.
 What remains pending, if anything.
 ```
 
+### What to Include in `manu.md`
+
+```markdown
+# NNNN — Description [MANU]
+
+## Qué es un MANU
+
+Brief explanation of the manu concept (one paragraph).
+
+## Executive Summary
+
+What manual adjustments were made and why.
+
+## Cambios Respecto al XACT
+
+Itemized list of every difference between the xact output and the final committed state.
+Use tables to compare old vs new names, packages, or approaches.
+
+## Estructura Final de Paquetes
+
+The actual directory/package tree after all manual changes.
+
+## Diagrama de Dependencias
+
+ASCII diagram of the import graph.
+
+## Dependencias Finales
+
+Updated dependency table.
+
+## Resultados de Verificación
+
+Build/vet/test output confirming the final state is healthy.
+
+## Lessons Learned
+
+What this iteration taught us.
+
+## Next Steps
+
+What remains pending.
+```
+
 ### When to Consult Changes
 
-- When the user says "check the plan" or "according to the execution".
+- When the user says "check the plan", "according to the execution", or "according to the manu".
 - When you need to understand **what recently changed** in the project.
 - When you need context on **why a decision was made**, not just in design but in execution.
 - To see the **record of lessons learned** from previous iterations.
+- A `manu` always supersedes the `xact` for the same change number — if both exist, the `manu` reflects the actual final state.
 
 ---
 

@@ -1,12 +1,12 @@
 # Vext — Database Design
 
-## Engine Choice: SQLite
+## Engine Choice: SQLite via GORM
 
-Vext uses SQLite as its storage engine. It is a single file on disk, requires zero configuration, has no server process, and is battle-tested in production environments worldwide. For a local-first CLI tool, it is the correct choice.
+Vext uses SQLite as its storage engine. It is a single file on disk, requires zero configuration, has no server process, and is battle-tested in production environments worldwide.
 
-The driver used is `modernc.org/sqlite`, a Pure Go implementation. This avoids requiring a C compiler (CGO) on the build machine and produces a fully static, portable binary.
+The driver used is `github.com/glebarez/sqlite`, a Pure Go SQLite implementation. This avoids requiring a C compiler (CGO) on the build machine and produces a fully static, portable binary. GORM (`gorm.io/gorm`) is used as the ORM layer: it provides a clean query DSL, handles struct-to-row mapping, and manages migrations via `AutoMigrate`.
 
-**Database location:** `~/.config/vext/vext.db`
+**Database location:** `~/.config/vext/vext.db` (Linux/macOS) · `%AppData%\vext\vext.db` (Windows)
 
 ---
 
@@ -26,16 +26,36 @@ Two approaches were considered:
 
 ## Schema
 
+The schema is defined as a GORM model struct in `dal/schemas.go` and created via `db.AutoMigrate(&SecretRecord{})`:
+
+```go
+// SecretRecord is a 1:1 mapping of the `secrets` table.
+type SecretRecord struct {
+    ID        int64     `gorm:"primaryKey;autoIncrement"`
+    Name      string    `gorm:"uniqueIndex;not null"`
+    Type      string    `gorm:"not null"`
+    Salt      []byte    `gorm:"not null;type:blob"`
+    Nonce     []byte    `gorm:"not null;type:blob"`
+    Encrypted []byte    `gorm:"not null;type:blob"`
+    CreatedAt time.Time `gorm:"autoCreateTime"`
+    UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+func (SecretRecord) TableName() string { return "secrets" }
+```
+
+The equivalent SQL schema is:
+
 ```sql
 CREATE TABLE IF NOT EXISTS secrets (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    name             TEXT    UNIQUE NOT NULL,
-    type             TEXT    NOT NULL,
-    salt             BLOB    NOT NULL,
-    nonce            BLOB    NOT NULL,
-    encrypted_payload BLOB   NOT NULL,
-    created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+    id         INTEGER  PRIMARY KEY AUTOINCREMENT,
+    name       TEXT     UNIQUE NOT NULL,
+    type       TEXT     NOT NULL,
+    salt       BLOB     NOT NULL,
+    nonce      BLOB     NOT NULL,
+    encrypted  BLOB     NOT NULL,
+    created_at DATETIME,
+    updated_at DATETIME
 );
 ```
 
@@ -48,47 +68,47 @@ CREATE TABLE IF NOT EXISTS secrets (
 | `type` | TEXT | Secret type tag. e.g. `"account"`, `"card"`. Drives deserialization in Go. |
 | `salt` | BLOB | 16 random bytes. Per-record. Used by Argon2id to derive the encryption key. |
 | `nonce` | BLOB | 12 random bytes. Per-record. Used by AES-GCM as the initialization vector. |
-| `encrypted_payload` | BLOB | The AES-GCM ciphertext. Contains the JSON payload + GCM auth tag. |
-| `created_at` | DATETIME | Timestamp of creation. Informational only. |
-| `updated_at` | DATETIME | Timestamp of last modification. Informational only. |
+| `encrypted` | BLOB | The AES-GCM ciphertext. Contains the JSON payload + GCM auth tag. |
+| `created_at` | DATETIME | Timestamp of creation. Managed by GORM `autoCreateTime`. |
+| `updated_at` | DATETIME | Timestamp of last modification. Managed by GORM `autoUpdateTime`. |
 
 ---
 
 ## How the Payload Column Works
 
-The `encrypted_payload` column is the heart of the polymorphic design. Here's the lifecycle of data flowing into and out of it:
+The `encrypted` column is the heart of the polymorphic design.
 
-### Writing (add)
+### Writing (`vext add`)
 
 ```
 User inputs (username, password)
         │
         ▼
-Assembled into a typed Go struct (AccountPayload)
+Assembled into AccountSecret struct
         │
         ▼
-Serialized to JSON string
-  {"username":"bob","password":"hunter2"}
+Serialized to JSON bytes
+  {"username":"bob","password":"<base64-encoded bytes>"}
         │
         ▼
 JSON bytes encrypted with AES-256-GCM
-  → produces opaque ciphertext + auth tag
+  → produces salt + nonce + ciphertext
         │
         ▼
-Stored in encrypted_payload column (BLOB)
+Stored: name, type, salt, nonce, encrypted → secrets table
 ```
 
-### Reading (get)
+### Reading (`vext get`)
 
 ```
-encrypted_payload BLOB fetched from SQLite
+Row fetched from secrets table (name, type, salt, nonce, encrypted)
         │
         ▼
-Decrypted with AES-256-GCM using master password + stored nonce + salt
+Decrypted with AES-256-GCM (master password + salt + nonce)
   → produces JSON bytes
         │
         ▼
-JSON deserialized into the correct Go struct (based on `type` column)
+JSON deserialized into the correct Go struct (based on `type` field)
         │
         ▼
 Fields printed to terminal
@@ -98,14 +118,16 @@ Fields printed to terminal
 
 ## Payload Schemas (Per Type)
 
-These are the JSON structures that get encrypted and stored in `encrypted_payload`. The database itself never sees these — it only stores the encrypted bytes.
+These are the JSON structures that get encrypted and stored in `encrypted`. The database itself never sees these — it only stores the encrypted bytes.
+
+**Note:** `AccountSecret.Password` is `[]byte` in Go, so it serializes as a base64-encoded string in JSON (standard Go behavior for `[]byte` fields).
 
 ### type: `"account"`
 
 ```json
 {
   "username": "bob@example.com",
-  "password": "hunter2"
+  "password": "<base64-encoded bytes>"
 }
 ```
 
@@ -120,7 +142,7 @@ These are the JSON structures that get encrypted and stored in `encrypted_payloa
 }
 ```
 
-### type: `"note"` *(Phase 2, example)*
+### type: `"note"` *(Phase 2)*
 
 ```json
 {
@@ -128,20 +150,28 @@ These are the JSON structures that get encrypted and stored in `encrypted_payloa
 }
 ```
 
-Adding a new type requires only: defining a new Go struct, adding a new `case` to the switch that handles serialization/deserialization, and documenting it here. **The SQL schema does not change.**
+Adding a new type requires only: defining a new Go struct under `core/secrets/`, adding a new `case` to `StoreSecretRequest.buildPayload()` and `RetrieveSecretUC`, and documenting it here. **The SQL schema does not change.**
 
 ---
 
 ## Migrations
 
-Vext runs `CREATE TABLE IF NOT EXISTS` on every startup. This is safe and idempotent — it only creates the table if it doesn't already exist.
+Vext uses GORM's `AutoMigrate` on every `vext init` call. This is safe and idempotent — it only creates missing tables or adds missing columns. It never drops columns or changes existing ones.
 
-For future schema changes (e.g. adding a new column), Vext will use a simple integer versioning approach stored in SQLite's built-in `PRAGMA user_version`. On startup, the current version is read and any pending migrations are applied in order.
+```go
+func Migrate(db *gorm.DB) error {
+    return db.AutoMigrate(&SecretRecord{})
+}
+```
+
+For future schema changes (e.g. adding a new column), adding the field to `SecretRecord` with the appropriate GORM tag is sufficient — `AutoMigrate` handles the rest.
 
 ---
 
 ## SQLite Gotchas to Watch
 
-**WAL and journal files:** SQLite may create `-wal` or `-journal` files alongside `vext.db` during writes. These are temporary, but they could momentarily contain data in an intermediate state. Because Vext encrypts before writing, these files will never contain plaintext secrets — only encrypted blobs.
+**WAL and journal files:** SQLite may create `-wal` or `-journal` files alongside `vext.db` during writes. These are temporary. Because Vext encrypts before writing, these files will never contain plaintext secrets — only encrypted blobs.
 
-**File permissions:** On creation, `vext.db` should be created with permissions `0600` (owner read/write only). This prevents other users on the same machine from reading the file.
+**File permissions:** After `vext init`, the database file is explicitly `chmod`-ed to `0600` (owner read/write only) by `InitStorageUC`. This prevents other users on the same machine from reading the file even if they obtain the path.
+
+**Unique constraint errors:** GORM does not wrap SQLite's unique constraint violation in a typed error. `SQLiteRepository.Save` detects it via string inspection (`"UNIQUE constraint failed"`) and maps it to `core.ErrAlreadyExists`.
