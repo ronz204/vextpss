@@ -7,69 +7,11 @@ import (
 
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
-	"vextpss/source/pkg/shared"
 )
-
-// SecretCollector knows how to interactively collect all fields for one secret type.
-// It uses a Prompter for I/O, keeping collection logic separate from low-level terminal ops.
-type SecretCollector interface {
-	Collect(p Prompter) (core.SecretPayload, error)
-}
-
-// CollectorOptions carries optional parameters that some collectors may use.
-type CollectorOptions struct {
-	Generate   bool
-	GenLength  int
-	GenSymbols bool
-}
-
-// NewSecretCollector returns the collector for the given secret type.
-func NewSecretCollector(secretType string, opts CollectorOptions) (SecretCollector, error) {
-	switch secretType {
-	case "account":
-		return &AccountCollector{opts: opts}, nil
-	case "credit":
-		return &CreditCollector{}, nil
-	default:
-		return nil, core.NewDomainError(fmt.Sprintf("unknown secret type %q", secretType))
-	}
-}
-
-// AccountCollector collects username and password for an account secret.
-type AccountCollector struct {
-	opts CollectorOptions
-}
-
-func (c *AccountCollector) Collect(p Prompter) (core.SecretPayload, error) {
-	username, err := p.ReadLine("Username: ")
-	if err != nil {
-		return nil, fmt.Errorf("could not read username: %w", err)
-	}
-
-	var password []byte
-	if c.opts.Generate {
-		pw, err := shared.GeneratePassword(c.opts.GenLength, c.opts.GenSymbols)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate password: %w", err)
-		}
-		password = []byte(pw)
-		fmt.Printf("Generated password: %s\n", pw)
-	} else {
-		password, err = p.ReadPassword("Password: ")
-		if err != nil {
-			return nil, fmt.Errorf("could not read password: %w", err)
-		}
-	}
-
-	return &secrets.AccountSecret{
-		Username: username,
-		Password: password,
-	}, nil
-}
 
 // CreditCollector collects all fields for a credit card secret.
 // Required fields: card number, security code, expiration month/year, PIN.
-// Optional fields: bank name, bank username, bank password, virtual key, cellphone, country code.
+// Optional fields: bank username, bank password, virtual key, cellphone, country code.
 type CreditCollector struct{}
 
 func (c *CreditCollector) Collect(p Prompter) (core.SecretPayload, error) {
