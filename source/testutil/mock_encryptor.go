@@ -1,8 +1,8 @@
-package mocks
+﻿package testutil
 
 import "context"
 
-// MockEncryptor is a configurable test double for tokens.Encryptor.
+// MockEncryptor is a configurable test double for crypto.Encryptor.
 // Default behavior: Encrypt returns plaintext as ciphertext (with stub salt/nonce).
 // Default behavior: Decrypt returns ciphertext as plaintext (transparent round-trip).
 type MockEncryptor struct {

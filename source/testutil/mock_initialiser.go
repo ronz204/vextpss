@@ -1,8 +1,8 @@
-package mocks
+﻿package testutil
 
 import "context"
 
-// MockInitialiser is a configurable test double for apps.StorageInitialiser.
+// MockInitialiser is a configurable test double for app.StorageInitialiser.
 type MockInitialiser struct {
 	InitFn    func(ctx context.Context) error
 	DBPathVal string
