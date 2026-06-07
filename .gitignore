@@ -19,6 +19,7 @@ mem.pprof
 
 # IDEs and editors
 .vscode/
+sandbox/
 !.vscode/extensions.json
 .idea/
 *.swp
