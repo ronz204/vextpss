@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -7,12 +7,12 @@ import (
 
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
-func validAccountRequest(name string) apps.StoreSecretRequest {
-	return apps.StoreSecretRequest{
+func validAccountRequest(name string) app.StoreSecretRequest {
+	return app.StoreSecretRequest{
 		Name:           name,
 		MasterPassword: []byte("masterpass"),
 		Payload: &secrets.AccountSecret{
@@ -22,8 +22,8 @@ func validAccountRequest(name string) apps.StoreSecretRequest {
 	}
 }
 
-func validCreditRequest(name string) apps.StoreSecretRequest {
-	return apps.StoreSecretRequest{
+func validCreditRequest(name string) app.StoreSecretRequest {
+	return app.StoreSecretRequest{
 		Name:           name,
 		MasterPassword: []byte("masterpass"),
 		Payload: &secrets.CreditSecret{
@@ -37,14 +37,14 @@ func validCreditRequest(name string) apps.StoreSecretRequest {
 }
 
 func TestStoreSecretUC_Execute_AccountSuccess(t *testing.T) {
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
 	if err := uc.Execute(context.Background(), validAccountRequest("github")); err != nil {
 		t.Fatalf("Execute() error = %v, want nil", err)
 	}
 }
 
 func TestStoreSecretUC_Execute_CreditSuccess(t *testing.T) {
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
 	if err := uc.Execute(context.Background(), validCreditRequest("visa-debit")); err != nil {
 		t.Fatalf("Execute() credit error = %v, want nil", err)
 	}
@@ -52,13 +52,13 @@ func TestStoreSecretUC_Execute_CreditSuccess(t *testing.T) {
 
 func TestStoreSecretUC_Execute_SavedSecretHasCorrectName(t *testing.T) {
 	var savedName string
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, s *core.Secret, _ []byte) error {
 			savedName = s.Name
 			return nil
 		},
 	}
-	uc := apps.NewStoreSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(repo, &testutil.MockEncryptor{})
 	uc.Execute(context.Background(), validAccountRequest("my-service"))
 
 	if savedName != "my-service" {
@@ -68,13 +68,13 @@ func TestStoreSecretUC_Execute_SavedSecretHasCorrectName(t *testing.T) {
 
 func TestStoreSecretUC_Execute_SavedCreditHasCorrectType(t *testing.T) {
 	var savedType string
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, s *core.Secret, _ []byte) error {
 			savedType = s.Type
 			return nil
 		},
 	}
-	uc := apps.NewStoreSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(repo, &testutil.MockEncryptor{})
 	uc.Execute(context.Background(), validCreditRequest("visa"))
 
 	if savedType != "credit" {
@@ -83,7 +83,7 @@ func TestStoreSecretUC_Execute_SavedCreditHasCorrectType(t *testing.T) {
 }
 
 func TestStoreSecretUC_Execute_EmptyName(t *testing.T) {
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
 	req := validAccountRequest("")
 	err := uc.Execute(context.Background(), req)
 	if err == nil {
@@ -95,8 +95,8 @@ func TestStoreSecretUC_Execute_EmptyName(t *testing.T) {
 }
 
 func TestStoreSecretUC_Execute_NilPayload(t *testing.T) {
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
-	req := apps.StoreSecretRequest{
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
+	req := app.StoreSecretRequest{
 		Name:           "svc",
 		MasterPassword: []byte("master"),
 		Payload:        nil,
@@ -111,7 +111,7 @@ func TestStoreSecretUC_Execute_NilPayload(t *testing.T) {
 }
 
 func TestStoreSecretUC_Execute_EmptyMasterPassword(t *testing.T) {
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
 	req := validAccountRequest("svc")
 	req.MasterPassword = []byte{}
 	err := uc.Execute(context.Background(), req)
@@ -124,8 +124,8 @@ func TestStoreSecretUC_Execute_EmptyMasterPassword(t *testing.T) {
 }
 
 func TestStoreSecretUC_Execute_PayloadValidationFails(t *testing.T) {
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
-	req := apps.StoreSecretRequest{
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
+	req := app.StoreSecretRequest{
 		Name:           "svc",
 		MasterPassword: []byte("master"),
 		Payload: &secrets.AccountSecret{
@@ -143,12 +143,12 @@ func TestStoreSecretUC_Execute_PayloadValidationFails(t *testing.T) {
 }
 
 func TestStoreSecretUC_Execute_AlreadyExists(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, _ *core.Secret, _ []byte) error {
 			return core.ErrAlreadyExists
 		},
 	}
-	uc := apps.NewStoreSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(repo, &testutil.MockEncryptor{})
 	err := uc.Execute(context.Background(), validAccountRequest("svc"))
 	if !core.IsAlreadyExists(err) {
 		t.Errorf("Execute() error = %v, want ErrAlreadyExists", err)
@@ -157,12 +157,12 @@ func TestStoreSecretUC_Execute_AlreadyExists(t *testing.T) {
 
 func TestStoreSecretUC_Execute_EncryptionError(t *testing.T) {
 	encErr := errors.New("crypto device failure")
-	enc := &mocks.MockEncryptor{
+	enc := &testutil.MockEncryptor{
 		EncryptFn: func(_ context.Context, _, _ []byte) ([]byte, []byte, []byte, error) {
 			return nil, nil, nil, encErr
 		},
 	}
-	uc := apps.NewStoreSecretUC(&mocks.MockRepository{}, enc)
+	uc := app.NewStoreSecretUC(&testutil.MockRepository{}, enc)
 	err := uc.Execute(context.Background(), validAccountRequest("svc"))
 	if err == nil {
 		t.Fatal("Execute() with encryption error should return an error")
@@ -171,12 +171,12 @@ func TestStoreSecretUC_Execute_EncryptionError(t *testing.T) {
 
 func TestStoreSecretUC_Execute_RepoTechnicalError(t *testing.T) {
 	techErr := errors.New("db connection lost")
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, _ *core.Secret, _ []byte) error {
 			return techErr
 		},
 	}
-	uc := apps.NewStoreSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewStoreSecretUC(repo, &testutil.MockEncryptor{})
 	err := uc.Execute(context.Background(), validAccountRequest("svc"))
 	if err == nil {
 		t.Fatal("Execute() with repo error should return an error")

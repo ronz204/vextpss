@@ -1,23 +1,20 @@
-package apps
+﻿package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/shared"
-	"vextpss/source/pkg/tokens"
+	"vextpss/source/shared"
 )
 
 // StoreSecretUC is the use case for persisting a new secret.
 type StoreSecretUC struct {
-	repo      dal.SecretRepository
-	encryptor tokens.Encryptor
+	repo      core.SecretRepository
+	encryptor core.Encryptor
 }
 
-func NewStoreSecretUC(repo dal.SecretRepository, enc tokens.Encryptor) *StoreSecretUC {
+func NewStoreSecretUC(repo core.SecretRepository, enc core.Encryptor) *StoreSecretUC {
 	return &StoreSecretUC{repo: repo, encryptor: enc}
 }
 
@@ -52,7 +49,7 @@ func (uc *StoreSecretUC) Execute(ctx context.Context, req StoreSecretRequest) er
 		return err
 	}
 
-	plaintext, err := json.Marshal(req.Payload)
+	plaintext, err := marshalPayload(req.Payload)
 	if err != nil {
 		return fmt.Errorf("serialization failed: %w", err)
 	}

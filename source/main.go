@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"os"
 
+	"vextpss/source/app"
 	"vextpss/source/cmd"
 	"vextpss/source/cmd/handlers"
-	"vextpss/source/cmd/helpers"
-	"vextpss/source/dal"
-	"vextpss/source/dal/repos"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/pkg/configs"
-	"vextpss/source/pkg/tokens"
+	"vextpss/source/cmd/ui"
+	"vextpss/source/config"
+	"vextpss/source/crypto"
+	"vextpss/source/storage"
+	"vextpss/source/storage/sqlite"
 )
 
 func main() {
 	// 1. Load configuration (paths, env).
-	cfg, err := configs.Load()
+	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	// 2. Open the database (single connection for the lifetime of the process).
-	db, err := dal.Open(cfg.DBPath)
+	db, err := storage.Open(cfg.DBPath)
 	if err != nil {
 		// Database may not exist yet — that is fine; `vext init` creates it.
 		// Only hard-fail if the file exists but cannot be opened.
@@ -34,38 +34,38 @@ func main() {
 		db = nil
 	}
 	if db != nil {
-		defer dal.Close(db)
+		defer storage.Close(db)
 	}
 
 	// 3. Wire up infrastructure implementations.
-	encryptor := tokens.NewAESGCMEncryptor()
-	initialiser := dal.NewInitialiser(cfg.DBPath, cfg.AppDir)
+	encryptor := crypto.NewAESGCMEncryptor()
+	initialiser := storage.NewInitialiser(cfg.DBPath)
 
 	// 4. Build use cases (repo may be nil when the DB has not been initialised yet).
-	initUC := apps.NewInitStorageUC(initialiser)
+	initUC := app.NewInitStorageUC(initialiser)
 
 	var (
-		storeUC    *apps.StoreSecretUC
-		retrieveUC *apps.RetrieveSecretUC
-		listUC     *apps.ListSecretsUC
-		deleteUC   *apps.DeleteSecretUC
-		updateUC   *apps.UpdateSecretUC
-		exportUC   *apps.ExportSecretsUC
-		importUC   *apps.ImportSecretsUC
+		storeUC    *app.StoreSecretUC
+		retrieveUC *app.RetrieveSecretUC
+		listUC     *app.ListSecretsUC
+		deleteUC   *app.DeleteSecretUC
+		updateUC   *app.UpdateSecretUC
+		exportUC   *app.ExportSecretsUC
+		importUC   *app.ImportSecretsUC
 	)
 	if db != nil {
-		repo := repos.NewSQLiteRepository(db)
-		storeUC = apps.NewStoreSecretUC(repo, encryptor)
-		retrieveUC = apps.NewRetrieveSecretUC(repo, encryptor)
-		listUC = apps.NewListSecretsUC(repo)
-		deleteUC = apps.NewDeleteSecretUC(repo)
-		updateUC = apps.NewUpdateSecretUC(repo, encryptor)
-		exportUC = apps.NewExportSecretsUC(repo, encryptor)
-		importUC = apps.NewImportSecretsUC(repo, encryptor)
+		repo := sqlite.NewSQLiteRepository(db)
+		storeUC = app.NewStoreSecretUC(repo, encryptor)
+		retrieveUC = app.NewRetrieveSecretUC(repo, encryptor)
+		listUC = app.NewListSecretsUC(repo)
+		deleteUC = app.NewDeleteSecretUC(repo)
+		updateUC = app.NewUpdateSecretUC(repo, encryptor)
+		exportUC = app.NewExportSecretsUC(repo, encryptor)
+		importUC = app.NewImportSecretsUC(repo, encryptor)
 	}
 
 	// 5. Build CLI handlers.
-	prompter := &helpers.CLIPrompter{}
+	prompter := &ui.CLIPrompter{}
 
 	initHandler := handlers.NewInitHandler(initUC)
 	addHandler := handlers.NewAddHandler(storeUC, prompter)
@@ -73,7 +73,7 @@ func main() {
 	listHandler := handlers.NewListHandler(listUC)
 	rmHandler := handlers.NewRmHandler(deleteUC, prompter)
 	genHandler := handlers.NewGenHandler()
-	updateHandler := handlers.NewUpdateHandler(updateUC, prompter)
+	updateHandler := handlers.NewUpdateHandler(retrieveUC, updateUC, prompter)
 	exportHandler := handlers.NewExportHandler(exportUC, prompter)
 	importHandler := handlers.NewImportHandler(importUC, prompter)
 

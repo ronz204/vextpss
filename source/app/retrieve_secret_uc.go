@@ -1,24 +1,19 @@
-package apps
+﻿package app
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"vextpss/source/core"
-	"vextpss/source/core/secrets"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/shared"
-	"vextpss/source/pkg/tokens"
+	"vextpss/source/shared"
 )
 
 // RetrieveSecretUC is the use case for fetching and decrypting a stored secret.
 type RetrieveSecretUC struct {
-	repo      dal.SecretRepository
-	encryptor tokens.Encryptor
+	repo      core.SecretRepository
+	encryptor core.Encryptor
 }
 
-func NewRetrieveSecretUC(repo dal.SecretRepository, enc tokens.Encryptor) *RetrieveSecretUC {
+func NewRetrieveSecretUC(repo core.SecretRepository, enc core.Encryptor) *RetrieveSecretUC {
 	return &RetrieveSecretUC{repo: repo, encryptor: enc}
 }
 
@@ -48,7 +43,7 @@ func (uc *RetrieveSecretUC) Execute(ctx context.Context, req RetrieveSecretReque
 	}
 	defer shared.Zero(plaintext)
 
-	payload, err := deserialisePayload(secret.Type, plaintext)
+	payload, err := unmarshalPayload(secret.Type, plaintext)
 	if err != nil {
 		return nil, err
 	}
@@ -58,23 +53,4 @@ func (uc *RetrieveSecretUC) Execute(ctx context.Context, req RetrieveSecretReque
 		Type:    secret.Type,
 		Payload: payload,
 	}, nil
-}
-
-func deserialisePayload(secretType string, plaintext []byte) (core.SecretPayload, error) {
-	switch secretType {
-	case "account":
-		var ap secrets.AccountSecret
-		if err := json.Unmarshal(plaintext, &ap); err != nil {
-			return nil, fmt.Errorf("failed to parse account secret: %w", err)
-		}
-		return &ap, nil
-	case "credit":
-		var cp secrets.CreditSecret
-		if err := json.Unmarshal(plaintext, &cp); err != nil {
-			return nil, fmt.Errorf("failed to parse credit secret: %w", err)
-		}
-		return &cp, nil
-	default:
-		return nil, fmt.Errorf("unknown secret type: %s", secretType)
-	}
 }

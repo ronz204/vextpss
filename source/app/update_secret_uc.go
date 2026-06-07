@@ -1,34 +1,29 @@
-package apps
+﻿package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"vextpss/source/core"
-	"vextpss/source/core/secrets"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/shared"
-	"vextpss/source/pkg/tokens"
+	"vextpss/source/shared"
 )
 
 // UpdateSecretUC is the use case for replacing the payload of an existing secret.
 type UpdateSecretUC struct {
-	repo      dal.SecretRepository
-	encryptor tokens.Encryptor
+	repo      core.SecretRepository
+	encryptor core.Encryptor
 }
 
-func NewUpdateSecretUC(repo dal.SecretRepository, enc tokens.Encryptor) *UpdateSecretUC {
+func NewUpdateSecretUC(repo core.SecretRepository, enc core.Encryptor) *UpdateSecretUC {
 	return &UpdateSecretUC{repo: repo, encryptor: enc}
 }
 
 // UpdateSecretRequest carries all inputs needed to update a stored credential.
-// NewUsername may be empty — the UC will keep the existing username in that case.
+// NewPayload must be of the same type as the stored secret.
 type UpdateSecretRequest struct {
 	Name           string
 	MasterPassword []byte
-	NewUsername    string
-	NewPassword    []byte
+	NewPayload     core.SecretPayload
 }
 
 func (r *UpdateSecretRequest) validate() error {
@@ -38,52 +33,42 @@ func (r *UpdateSecretRequest) validate() error {
 	if len(r.MasterPassword) == 0 {
 		return core.NewDomainError("master password is required")
 	}
-	if len(r.NewPassword) == 0 {
-		return core.NewDomainError("new password is required")
+	if r.NewPayload == nil {
+		return core.NewDomainError("new payload is required")
 	}
 	return nil
 }
 
-// Execute decrypts the current record, resolves the username, re-encrypts, and persists.
+// Execute verifies the master password, validates the new payload, re-encrypts, and persists.
 func (uc *UpdateSecretUC) Execute(ctx context.Context, req UpdateSecretRequest) error {
 	if err := req.validate(); err != nil {
 		return err
 	}
 
-	// Fetch existing record to verify existence and retrieve crypto material.
 	secret, ciphertext, err := uc.repo.GetByName(ctx, req.Name)
 	if err != nil {
 		return err
 	}
 
-	// Decrypt current payload to resolve the username if no new one was provided.
+	// Decrypt current record solely to verify the master password is correct.
 	plaintext, err := uc.encryptor.Decrypt(ctx, req.MasterPassword, secret.Salt, secret.Nonce, ciphertext)
 	if err != nil {
 		return core.ErrDecryptionFailed
 	}
 	defer shared.Zero(plaintext)
 
-	resolvedUsername := req.NewUsername
-	if resolvedUsername == "" {
-		currentPayload, err := deserialisePayload(secret.Type, plaintext)
-		if err != nil {
-			return err
-		}
-		if acc, ok := currentPayload.(*secrets.AccountSecret); ok {
-			resolvedUsername = acc.Username
-		}
+	// Guard against accidental type change.
+	if req.NewPayload.GetType() != secret.Type {
+		return core.NewDomainError(
+			fmt.Sprintf("cannot change secret type from %q to %q", secret.Type, req.NewPayload.GetType()),
+		)
 	}
 
-	// Build and validate the new payload.
-	newPayload := &secrets.AccountSecret{
-		Username: resolvedUsername,
-		Password: req.NewPassword,
-	}
-	if err := newPayload.Validate(); err != nil {
+	if err := req.NewPayload.Validate(); err != nil {
 		return err
 	}
 
-	newPlaintext, err := json.Marshal(newPayload)
+	newPlaintext, err := marshalPayload(req.NewPayload)
 	if err != nil {
 		return fmt.Errorf("serialization failed: %w", err)
 	}

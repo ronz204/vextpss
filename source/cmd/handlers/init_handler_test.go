@@ -1,4 +1,4 @@
-package handlers_test
+﻿package handlers_test
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"vextpss/source/cmd/handlers"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 // captureStdout redirects os.Stdout for the duration of f and returns what was written.
@@ -33,7 +33,7 @@ func captureStdout(t *testing.T, f func()) string {
 	return buf.String()
 }
 
-func newInitUC(t *testing.T, initErr error) *apps.InitStorageUC {
+func newInitUC(t *testing.T, initErr error) *app.InitStorageUC {
 	t.Helper()
 	var initFn func(ctx context.Context) error
 	if initErr != nil {
@@ -51,7 +51,7 @@ func newInitUC(t *testing.T, initErr error) *apps.InitStorageUC {
 		f.Close()
 	}
 
-	return apps.NewInitStorageUC(&mocks.MockInitialiser{
+	return app.NewInitStorageUC(&testutil.MockInitialiser{
 		InitFn:    initFn,
 		DBPathVal: dbPath,
 	})

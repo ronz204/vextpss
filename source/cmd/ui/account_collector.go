@@ -1,11 +1,11 @@
-package helpers
+﻿package ui
 
 import (
 	"fmt"
 
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
-	"vextpss/source/pkg/shared"
+	"vextpss/source/shared"
 )
 
 // AccountCollector collects username and password for an account secret.

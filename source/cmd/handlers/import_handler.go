@@ -1,23 +1,22 @@
-package handlers
+﻿package handlers
 
 import (
 	"context"
 	"fmt"
 
-	"vextpss/source/cmd/helpers"
-	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
+	"vextpss/source/app"
+	"vextpss/source/cmd/ui"
 
 	"github.com/spf13/cobra"
 )
 
 // ImportHandler handles the `vext import <file>` command.
 type ImportHandler struct {
-	uc       *apps.ImportSecretsUC
-	prompter helpers.Prompter
+	uc       *app.ImportSecretsUC
+	prompter ui.Prompter
 }
 
-func NewImportHandler(uc *apps.ImportSecretsUC, prompter helpers.Prompter) *ImportHandler {
+func NewImportHandler(uc *app.ImportSecretsUC, prompter ui.Prompter) *ImportHandler {
 	return &ImportHandler{uc: uc, prompter: prompter}
 }
 
@@ -34,24 +33,23 @@ func (h *ImportHandler) CobraCommand() *cobra.Command {
 }
 
 func (h *ImportHandler) Handle(ctx context.Context, inputPath string) error {
+	if !guardInit(h.uc != nil) {
+		return nil
+	}
+
 	masterPassword, err := h.prompter.ReadPassword("Master Password: ")
 	if err != nil {
 		return fmt.Errorf("could not read master password: %w", err)
 	}
 	defer h.prompter.Zero(masterPassword)
 
-	req := apps.ImportSecretsRequest{
+	req := app.ImportSecretsRequest{
 		MasterPassword: masterPassword,
 		InputPath:      inputPath,
 	}
 
 	resp, err := h.uc.Execute(ctx, req)
-	if err != nil {
-		if core.IsDomainError(err) {
-			fmt.Printf("[X] %s\n", err)
-			return nil
-		}
-		fmt.Println("[X] An unexpected error occurred. Please try again.")
+	if printErr(err, "") {
 		return nil
 	}
 

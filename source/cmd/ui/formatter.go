@@ -1,11 +1,11 @@
-package helpers
+﻿package ui
 
 import (
 	"fmt"
 
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
-	"vextpss/source/pkg/shared"
+	"vextpss/source/shared"
 )
 
 // PrintSecret displays a decrypted secret to stdout in a human-readable format.

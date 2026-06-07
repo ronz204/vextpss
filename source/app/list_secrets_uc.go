@@ -1,18 +1,17 @@
-package apps
+package app
 
 import (
 	"context"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
 )
 
 // ListSecretsUC is the use case for listing all stored secrets (metadata only — no decryption).
 type ListSecretsUC struct {
-	repo dal.SecretRepository
+	repo core.SecretRepository
 }
 
-func NewListSecretsUC(repo dal.SecretRepository) *ListSecretsUC {
+func NewListSecretsUC(repo core.SecretRepository) *ListSecretsUC {
 	return &ListSecretsUC{repo: repo}
 }
 

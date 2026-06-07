@@ -1,9 +1,9 @@
-package handlers
+﻿package handlers
 
 import (
 	"fmt"
 
-	"vextpss/source/pkg/shared"
+	"vextpss/source/shared"
 
 	"github.com/spf13/cobra"
 )

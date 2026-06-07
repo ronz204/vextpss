@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 func TestListSecretsUC_Execute_ReturnsAll(t *testing.T) {
@@ -16,12 +16,12 @@ func TestListSecretsUC_Execute_ReturnsAll(t *testing.T) {
 		{Name: "github", Type: "account", CreatedAt: time.Now()},
 		{Name: "gitlab", Type: "account", CreatedAt: time.Now()},
 	}
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		ListAllFn: func(_ context.Context) ([]core.Secret, error) {
 			return want, nil
 		},
 	}
-	uc := apps.NewListSecretsUC(repo)
+	uc := app.NewListSecretsUC(repo)
 
 	got, err := uc.Execute(context.Background())
 	if err != nil {
@@ -38,12 +38,12 @@ func TestListSecretsUC_Execute_ReturnsAll(t *testing.T) {
 }
 
 func TestListSecretsUC_Execute_EmptyList(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		ListAllFn: func(_ context.Context) ([]core.Secret, error) {
 			return []core.Secret{}, nil
 		},
 	}
-	uc := apps.NewListSecretsUC(repo)
+	uc := app.NewListSecretsUC(repo)
 
 	got, err := uc.Execute(context.Background())
 	if err != nil {
@@ -55,12 +55,12 @@ func TestListSecretsUC_Execute_EmptyList(t *testing.T) {
 }
 
 func TestListSecretsUC_Execute_RepoError(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		ListAllFn: func(_ context.Context) ([]core.Secret, error) {
 			return nil, errors.New("db timeout")
 		},
 	}
-	uc := apps.NewListSecretsUC(repo)
+	uc := app.NewListSecretsUC(repo)
 
 	_, err := uc.Execute(context.Background())
 	if err == nil {

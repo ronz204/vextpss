@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -8,13 +8,12 @@ import (
 	"testing"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
-func makeGetAllFn(records []dal.FullRecord) func(_ context.Context) ([]dal.FullRecord, error) {
-	return func(_ context.Context) ([]dal.FullRecord, error) {
+func makeGetAllFn(records []core.FullRecord) func(_ context.Context) ([]core.FullRecord, error) {
+	return func(_ context.Context) ([]core.FullRecord, error) {
 		return records, nil
 	}
 }
@@ -22,16 +21,16 @@ func makeGetAllFn(records []dal.FullRecord) func(_ context.Context) ([]dal.FullR
 func TestExportSecretsUC_Execute_WritesFile(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "backup.vext")
 
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "github", Type: "account", Salt: []byte("stub-salt-16byte"), Nonce: []byte("stub-nonce-12b")},
 			Encrypted: encryptedAccountPayload("alice", "hunter2"),
 		},
 	}
-	repo := &mocks.MockRepository{GetAllFn: makeGetAllFn(records)}
-	uc := apps.NewExportSecretsUC(repo, &mocks.MockEncryptor{})
+	repo := &testutil.MockRepository{GetAllFn: makeGetAllFn(records)}
+	uc := app.NewExportSecretsUC(repo, &testutil.MockEncryptor{})
 
-	count, err := uc.Execute(context.Background(), apps.ExportSecretsRequest{
+	count, err := uc.Execute(context.Background(), app.ExportSecretsRequest{
 		MasterPassword: []byte("master"),
 		OutputPath:     outPath,
 	})
@@ -48,10 +47,10 @@ func TestExportSecretsUC_Execute_WritesFile(t *testing.T) {
 
 func TestExportSecretsUC_Execute_EmptyVault(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "empty.vext")
-	repo := &mocks.MockRepository{GetAllFn: makeGetAllFn(nil)}
-	uc := apps.NewExportSecretsUC(repo, &mocks.MockEncryptor{})
+	repo := &testutil.MockRepository{GetAllFn: makeGetAllFn(nil)}
+	uc := app.NewExportSecretsUC(repo, &testutil.MockEncryptor{})
 
-	count, err := uc.Execute(context.Background(), apps.ExportSecretsRequest{
+	count, err := uc.Execute(context.Background(), app.ExportSecretsRequest{
 		MasterPassword: []byte("master"),
 		OutputPath:     outPath,
 	})
@@ -65,10 +64,10 @@ func TestExportSecretsUC_Execute_EmptyVault(t *testing.T) {
 
 func TestExportSecretsUC_Execute_FileIsValidJSON(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "backup.vext")
-	repo := &mocks.MockRepository{GetAllFn: makeGetAllFn(nil)}
-	uc := apps.NewExportSecretsUC(repo, &mocks.MockEncryptor{})
+	repo := &testutil.MockRepository{GetAllFn: makeGetAllFn(nil)}
+	uc := app.NewExportSecretsUC(repo, &testutil.MockEncryptor{})
 
-	uc.Execute(context.Background(), apps.ExportSecretsRequest{ //nolint
+	uc.Execute(context.Background(), app.ExportSecretsRequest{ //nolint
 		MasterPassword: []byte("master"),
 		OutputPath:     outPath,
 	})
@@ -84,21 +83,21 @@ func TestExportSecretsUC_Execute_FileIsValidJSON(t *testing.T) {
 }
 
 func TestExportSecretsUC_Execute_WrongMasterPassword(t *testing.T) {
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "svc", Type: "account", Salt: []byte("s"), Nonce: []byte("n")},
 			Encrypted: []byte("ciphertext"),
 		},
 	}
-	repo := &mocks.MockRepository{GetAllFn: makeGetAllFn(records)}
-	enc := &mocks.MockEncryptor{
+	repo := &testutil.MockRepository{GetAllFn: makeGetAllFn(records)}
+	enc := &testutil.MockEncryptor{
 		DecryptFn: func(_ context.Context, _ []byte, _ []byte, _ []byte, _ []byte) ([]byte, error) {
 			return nil, core.ErrDecryptionFailed
 		},
 	}
-	uc := apps.NewExportSecretsUC(repo, enc)
+	uc := app.NewExportSecretsUC(repo, enc)
 
-	_, err := uc.Execute(context.Background(), apps.ExportSecretsRequest{
+	_, err := uc.Execute(context.Background(), app.ExportSecretsRequest{
 		MasterPassword: []byte("wrong"),
 		OutputPath:     filepath.Join(t.TempDir(), "out.vext"),
 	})
@@ -108,8 +107,8 @@ func TestExportSecretsUC_Execute_WrongMasterPassword(t *testing.T) {
 }
 
 func TestExportSecretsUC_Execute_EmptyMasterPassword(t *testing.T) {
-	uc := apps.NewExportSecretsUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
-	_, err := uc.Execute(context.Background(), apps.ExportSecretsRequest{
+	uc := app.NewExportSecretsUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
+	_, err := uc.Execute(context.Background(), app.ExportSecretsRequest{
 		MasterPassword: []byte{},
 		OutputPath:     "out.vext",
 	})

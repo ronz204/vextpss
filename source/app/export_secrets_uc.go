@@ -1,4 +1,4 @@
-package apps
+﻿package app
 
 import (
 	"context"
@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/shared"
-	"vextpss/source/pkg/tokens"
+	"vextpss/source/shared"
 )
 
 // exportedSecret is a single decrypted secret inside an export bundle.
@@ -37,11 +35,11 @@ type exportFile struct {
 
 // ExportSecretsUC exports all secrets as a single encrypted file.
 type ExportSecretsUC struct {
-	repo      dal.SecretRepository
-	encryptor tokens.Encryptor
+	repo      core.SecretRepository
+	encryptor core.Encryptor
 }
 
-func NewExportSecretsUC(repo dal.SecretRepository, enc tokens.Encryptor) *ExportSecretsUC {
+func NewExportSecretsUC(repo core.SecretRepository, enc core.Encryptor) *ExportSecretsUC {
 	return &ExportSecretsUC{repo: repo, encryptor: enc}
 }
 

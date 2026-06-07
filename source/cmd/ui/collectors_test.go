@@ -1,22 +1,23 @@
-package helpers_test
+﻿package ui_test
 
 import (
 	"errors"
 	"strings"
 	"testing"
 
-	"vextpss/source/cmd/helpers"
+	"vextpss/source/cmd/ui"
+	"vextpss/source/testutil"
 	"vextpss/source/core/secrets"
 )
 
 // --- AccountCollector ---
 
 func TestAccountCollector_Collect_Success(t *testing.T) {
-	prompter := &helpers.MockPrompter{
+	prompter := &testutil.MockPrompter{
 		LineResponse:  "alice",
 		PasswordBytes: []byte("s3cr3t"),
 	}
-	c, _ := helpers.NewSecretCollector("account", helpers.CollectorOptions{})
+	c, _ := ui.NewSecretCollector("account", ui.CollectorOptions{})
 	payload, err := c.Collect(prompter)
 	if err != nil {
 		t.Fatalf("Collect() error = %v", err)
@@ -31,8 +32,8 @@ func TestAccountCollector_Collect_Success(t *testing.T) {
 }
 
 func TestAccountCollector_Collect_ReadLineError(t *testing.T) {
-	prompter := &helpers.MockPrompter{Err: errors.New("stdin closed")}
-	c, _ := helpers.NewSecretCollector("account", helpers.CollectorOptions{})
+	prompter := &testutil.MockPrompter{Err: errors.New("stdin closed")}
+	c, _ := ui.NewSecretCollector("account", ui.CollectorOptions{})
 	_, err := c.Collect(prompter)
 	if err == nil {
 		t.Fatal("Collect() should return error when ReadLine fails")
@@ -44,7 +45,7 @@ func TestAccountCollector_Collect_ReadPasswordError(t *testing.T) {
 		lineResponses:     []string{"alice"},
 		passwordResponses: []collectorPasswordResponse{{nil, errors.New("no tty")}},
 	}
-	c, _ := helpers.NewSecretCollector("account", helpers.CollectorOptions{})
+	c, _ := ui.NewSecretCollector("account", ui.CollectorOptions{})
 	_, err := c.Collect(prompter)
 	if err == nil {
 		t.Fatal("Collect() should return error when ReadPassword fails")
@@ -52,8 +53,8 @@ func TestAccountCollector_Collect_ReadPasswordError(t *testing.T) {
 }
 
 func TestAccountCollector_Collect_WithGenerate(t *testing.T) {
-	prompter := &helpers.MockPrompter{LineResponse: "alice"}
-	c, _ := helpers.NewSecretCollector("account", helpers.CollectorOptions{Generate: true, GenLength: 16, GenSymbols: true})
+	prompter := &testutil.MockPrompter{LineResponse: "alice"}
+	c, _ := ui.NewSecretCollector("account", ui.CollectorOptions{Generate: true, GenLength: 16, GenSymbols: true})
 	payload, err := c.Collect(prompter)
 	if err != nil {
 		t.Fatalf("Collect() with generate error = %v", err)
@@ -66,7 +67,7 @@ func TestAccountCollector_Collect_WithGenerate(t *testing.T) {
 
 // --- CreditCollector ---
 
-func newCreditPrompter(lines []string, passwords [][]byte) helpers.Prompter {
+func newCreditPrompter(lines []string, passwords [][]byte) ui.Prompter {
 	var pwResponses []collectorPasswordResponse
 	for _, p := range passwords {
 		pwResponses = append(pwResponses, collectorPasswordResponse{p, nil})
@@ -93,7 +94,7 @@ func TestCreditCollector_Collect_Success(t *testing.T) {
 		[]byte("vk999"),   // virtual key
 	}
 
-	c, _ := helpers.NewSecretCollector("credit", helpers.CollectorOptions{})
+	c, _ := ui.NewSecretCollector("credit", ui.CollectorOptions{})
 	payload, err := c.Collect(newCreditPrompter(lines, passwords))
 	if err != nil {
 		t.Fatalf("Collect() error = %v", err)
@@ -132,7 +133,7 @@ func TestCreditCollector_Collect_OptionalFieldsSkipped(t *testing.T) {
 		[]byte(""),     // virtual key (empty = skipped)
 	}
 
-	c, _ := helpers.NewSecretCollector("credit", helpers.CollectorOptions{})
+	c, _ := ui.NewSecretCollector("credit", ui.CollectorOptions{})
 	payload, err := c.Collect(newCreditPrompter(lines, passwords))
 	if err != nil {
 		t.Fatalf("Collect() error = %v", err)
@@ -156,7 +157,7 @@ func TestCreditCollector_Collect_InvalidMonth(t *testing.T) {
 	}
 	passwords := [][]byte{[]byte("123"), []byte("1234"), []byte("")}
 
-	c, _ := helpers.NewSecretCollector("credit", helpers.CollectorOptions{})
+	c, _ := ui.NewSecretCollector("credit", ui.CollectorOptions{})
 	_, err := c.Collect(newCreditPrompter(lines, passwords))
 	if err == nil {
 		t.Fatal("Collect() should return error for invalid month")
@@ -173,7 +174,7 @@ func TestCreditCollector_Collect_CardNumberSpacesStripped(t *testing.T) {
 	}
 	passwords := [][]byte{[]byte("123"), []byte("1234"), []byte("")}
 
-	c, _ := helpers.NewSecretCollector("credit", helpers.CollectorOptions{})
+	c, _ := ui.NewSecretCollector("credit", ui.CollectorOptions{})
 	payload, err := c.Collect(newCreditPrompter(lines, passwords))
 	if err != nil {
 		t.Fatalf("Collect() error = %v", err)
@@ -187,7 +188,7 @@ func TestCreditCollector_Collect_CardNumberSpacesStripped(t *testing.T) {
 // --- Factory ---
 
 func TestNewSecretCollector_UnknownType(t *testing.T) {
-	_, err := helpers.NewSecretCollector("note", helpers.CollectorOptions{})
+	_, err := ui.NewSecretCollector("note", ui.CollectorOptions{})
 	if err == nil {
 		t.Fatal("NewSecretCollector() should return error for unknown type")
 	}

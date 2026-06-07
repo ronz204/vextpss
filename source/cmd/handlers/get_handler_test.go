@@ -1,4 +1,4 @@
-package handlers_test
+﻿package handlers_test
 
 import (
 	"context"
@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"vextpss/source/app"
 	"vextpss/source/cmd/handlers"
-	"vextpss/source/cmd/helpers"
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/testutil"
 )
 
 func accountJSON(t *testing.T, username string, password []byte) []byte {
@@ -26,13 +25,13 @@ func accountJSON(t *testing.T, username string, password []byte) []byte {
 
 func TestGetHandler_Handle_Success(t *testing.T) {
 	payload := accountJSON(t, "alice", []byte("s3cr3t"))
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
 			return &core.Secret{Name: name, Type: "account", CreatedAt: time.Now()}, payload, nil
 		},
 	}
-	prompter := &helpers.MockPrompter{PasswordBytes: []byte("masterpass")}
-	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+	prompter := &testutil.MockPrompter{PasswordBytes: []byte("masterpass")}
+	uc := app.NewRetrieveSecretUC(repo, &testutil.MockEncryptor{})
 	h := handlers.NewGetHandler(uc, prompter)
 
 	out := captureStdout(t, func() {
@@ -50,13 +49,13 @@ func TestGetHandler_Handle_Success(t *testing.T) {
 }
 
 func TestGetHandler_Handle_NotFound(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, _ string) (*core.Secret, []byte, error) {
 			return nil, nil, core.ErrSecretNotFound
 		},
 	}
-	prompter := &helpers.MockPrompter{PasswordBytes: []byte("master")}
-	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+	prompter := &testutil.MockPrompter{PasswordBytes: []byte("master")}
+	uc := app.NewRetrieveSecretUC(repo, &testutil.MockEncryptor{})
 	h := handlers.NewGetHandler(uc, prompter)
 
 	out := captureStdout(t, func() {
@@ -74,18 +73,18 @@ func TestGetHandler_Handle_NotFound(t *testing.T) {
 }
 
 func TestGetHandler_Handle_DecryptionFailed(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
 			return &core.Secret{Name: name, Type: "account"}, []byte("enc"), nil
 		},
 	}
-	enc := &mocks.MockEncryptor{
+	enc := &testutil.MockEncryptor{
 		DecryptFn: func(_ context.Context, _, _, _, _ []byte) ([]byte, error) {
 			return nil, core.ErrDecryptionFailed
 		},
 	}
-	prompter := &helpers.MockPrompter{PasswordBytes: []byte("wrong")}
-	uc := apps.NewRetrieveSecretUC(repo, enc)
+	prompter := &testutil.MockPrompter{PasswordBytes: []byte("wrong")}
+	uc := app.NewRetrieveSecretUC(repo, enc)
 	h := handlers.NewGetHandler(uc, prompter)
 
 	out := captureStdout(t, func() {
@@ -105,7 +104,7 @@ func TestGetHandler_Handle_PromptError(t *testing.T) {
 			{nil, context.DeadlineExceeded},
 		},
 	}
-	uc := apps.NewRetrieveSecretUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
+	uc := app.NewRetrieveSecretUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
 	h := handlers.NewGetHandler(uc, prompter)
 
 	err := h.Handle(context.Background(), "svc")

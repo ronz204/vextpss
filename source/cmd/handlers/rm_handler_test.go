@@ -1,27 +1,26 @@
-package handlers_test
+﻿package handlers_test
 
 import (
 	"context"
 	"strings"
 	"testing"
 
+	"vextpss/source/app"
 	"vextpss/source/cmd/handlers"
-	"vextpss/source/cmd/helpers"
 	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/testutil"
 )
 
 func TestRmHandler_Handle_ConfirmedSuccess(t *testing.T) {
 	var deletedName string
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		DeleteFn: func(_ context.Context, name string) error {
 			deletedName = name
 			return nil
 		},
 	}
-	prompter := &helpers.MockPrompter{ConfirmResponse: true}
-	uc := apps.NewDeleteSecretUC(repo)
+	prompter := &testutil.MockPrompter{ConfirmResponse: true}
+	uc := app.NewDeleteSecretUC(repo)
 	h := handlers.NewRmHandler(uc, prompter)
 
 	out := captureStdout(t, func() {
@@ -40,14 +39,14 @@ func TestRmHandler_Handle_ConfirmedSuccess(t *testing.T) {
 
 func TestRmHandler_Handle_Rejected(t *testing.T) {
 	var deleteCalled bool
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		DeleteFn: func(_ context.Context, _ string) error {
 			deleteCalled = true
 			return nil
 		},
 	}
-	prompter := &helpers.MockPrompter{ConfirmResponse: false}
-	uc := apps.NewDeleteSecretUC(repo)
+	prompter := &testutil.MockPrompter{ConfirmResponse: false}
+	uc := app.NewDeleteSecretUC(repo)
 	h := handlers.NewRmHandler(uc, prompter)
 
 	out := captureStdout(t, func() {
@@ -65,13 +64,13 @@ func TestRmHandler_Handle_Rejected(t *testing.T) {
 }
 
 func TestRmHandler_Handle_NotFound(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		DeleteFn: func(_ context.Context, _ string) error {
 			return core.ErrSecretNotFound
 		},
 	}
-	prompter := &helpers.MockPrompter{ConfirmResponse: true}
-	uc := apps.NewDeleteSecretUC(repo)
+	prompter := &testutil.MockPrompter{ConfirmResponse: true}
+	uc := app.NewDeleteSecretUC(repo)
 	h := handlers.NewRmHandler(uc, prompter)
 
 	out := captureStdout(t, func() {
@@ -90,7 +89,7 @@ func TestRmHandler_Handle_ConfirmError(t *testing.T) {
 		confirmResponse: false,
 		confirmErr:      context.DeadlineExceeded,
 	}
-	uc := apps.NewDeleteSecretUC(&mocks.MockRepository{})
+	uc := app.NewDeleteSecretUC(&testutil.MockRepository{})
 	h := handlers.NewRmHandler(uc, prompter)
 
 	err := h.Handle(context.Background(), "svc")

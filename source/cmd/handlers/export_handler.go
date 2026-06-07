@@ -1,24 +1,23 @@
-package handlers
+﻿package handlers
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"vextpss/source/cmd/helpers"
-	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
+	"vextpss/source/app"
+	"vextpss/source/cmd/ui"
 
 	"github.com/spf13/cobra"
 )
 
 // ExportHandler handles the `vext export` command.
 type ExportHandler struct {
-	uc       *apps.ExportSecretsUC
-	prompter helpers.Prompter
+	uc       *app.ExportSecretsUC
+	prompter ui.Prompter
 }
 
-func NewExportHandler(uc *apps.ExportSecretsUC, prompter helpers.Prompter) *ExportHandler {
+func NewExportHandler(uc *app.ExportSecretsUC, prompter ui.Prompter) *ExportHandler {
 	return &ExportHandler{uc: uc, prompter: prompter}
 }
 
@@ -41,24 +40,23 @@ func (h *ExportHandler) CobraCommand() *cobra.Command {
 }
 
 func (h *ExportHandler) Handle(ctx context.Context, outputPath string) error {
+	if !guardInit(h.uc != nil) {
+		return nil
+	}
+
 	masterPassword, err := h.prompter.ReadPassword("Master Password: ")
 	if err != nil {
 		return fmt.Errorf("could not read master password: %w", err)
 	}
 	defer h.prompter.Zero(masterPassword)
 
-	req := apps.ExportSecretsRequest{
+	req := app.ExportSecretsRequest{
 		MasterPassword: masterPassword,
 		OutputPath:     outputPath,
 	}
 
 	count, err := h.uc.Execute(ctx, req)
-	if err != nil {
-		if core.IsDomainError(err) {
-			fmt.Printf("[X] %s\n", err)
-			return nil
-		}
-		fmt.Println("[X] An unexpected error occurred. Please try again.")
+	if printErr(err, "") {
 		return nil
 	}
 

@@ -1,4 +1,4 @@
-package apps
+﻿package app
 
 import (
 	"context"
@@ -7,18 +7,16 @@ import (
 	"os"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/shared"
-	"vextpss/source/pkg/tokens"
+	"vextpss/source/shared"
 )
 
 // ImportSecretsUC imports secrets from a file produced by ExportSecretsUC.
 type ImportSecretsUC struct {
-	repo      dal.SecretRepository
-	encryptor tokens.Encryptor
+	repo      core.SecretRepository
+	encryptor core.Encryptor
 }
 
-func NewImportSecretsUC(repo dal.SecretRepository, enc tokens.Encryptor) *ImportSecretsUC {
+func NewImportSecretsUC(repo core.SecretRepository, enc core.Encryptor) *ImportSecretsUC {
 	return &ImportSecretsUC{repo: repo, encryptor: enc}
 }
 

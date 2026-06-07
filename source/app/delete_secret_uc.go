@@ -1,17 +1,17 @@
-package apps
+package app
 
 import (
 	"context"
 
-	"vextpss/source/dal"
+	"vextpss/source/core"
 )
 
 // DeleteSecretUC is the use case for permanently removing a stored secret.
 type DeleteSecretUC struct {
-	repo dal.SecretRepository
+	repo core.SecretRepository
 }
 
-func NewDeleteSecretUC(repo dal.SecretRepository) *DeleteSecretUC {
+func NewDeleteSecretUC(repo core.SecretRepository) *DeleteSecretUC {
 	return &DeleteSecretUC{repo: repo}
 }
 

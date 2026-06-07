@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -6,19 +6,19 @@ import (
 	"testing"
 
 	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 func TestDeleteSecretUC_Execute_Success(t *testing.T) {
 	var deleted string
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		DeleteFn: func(_ context.Context, name string) error {
 			deleted = name
 			return nil
 		},
 	}
-	uc := apps.NewDeleteSecretUC(repo)
+	uc := app.NewDeleteSecretUC(repo)
 
 	if err := uc.Execute(context.Background(), "github"); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -29,12 +29,12 @@ func TestDeleteSecretUC_Execute_Success(t *testing.T) {
 }
 
 func TestDeleteSecretUC_Execute_NotFound(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		DeleteFn: func(_ context.Context, _ string) error {
 			return core.ErrSecretNotFound
 		},
 	}
-	uc := apps.NewDeleteSecretUC(repo)
+	uc := app.NewDeleteSecretUC(repo)
 
 	err := uc.Execute(context.Background(), "missing")
 	if !core.IsNotFound(err) {
@@ -43,12 +43,12 @@ func TestDeleteSecretUC_Execute_NotFound(t *testing.T) {
 }
 
 func TestDeleteSecretUC_Execute_RepoError(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		DeleteFn: func(_ context.Context, _ string) error {
 			return errors.New("disk full")
 		},
 	}
-	uc := apps.NewDeleteSecretUC(repo)
+	uc := app.NewDeleteSecretUC(repo)
 
 	err := uc.Execute(context.Background(), "svc")
 	if err == nil {

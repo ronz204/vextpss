@@ -1,23 +1,22 @@
-package handlers
+﻿package handlers
 
 import (
 	"context"
 	"fmt"
 
-	"vextpss/source/cmd/helpers"
-	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
+	"vextpss/source/app"
+	"vextpss/source/cmd/ui"
 
 	"github.com/spf13/cobra"
 )
 
 // RmHandler handles the `vext rm <name>` command.
 type RmHandler struct {
-	uc       *apps.DeleteSecretUC
-	prompter helpers.Prompter
+	uc       *app.DeleteSecretUC
+	prompter ui.Prompter
 }
 
-func NewRmHandler(uc *apps.DeleteSecretUC, prompter helpers.Prompter) *RmHandler {
+func NewRmHandler(uc *app.DeleteSecretUC, prompter ui.Prompter) *RmHandler {
 	return &RmHandler{uc: uc, prompter: prompter}
 }
 
@@ -34,6 +33,10 @@ func (h *RmHandler) CobraCommand() *cobra.Command {
 }
 
 func (h *RmHandler) Handle(ctx context.Context, name string) error {
+	if !guardInit(h.uc != nil) {
+		return nil
+	}
+
 	confirmed, err := h.prompter.Confirm(
 		fmt.Sprintf("Are you sure you want to delete %q? This cannot be undone. [y/N]: ", name),
 	)
@@ -45,12 +48,7 @@ func (h *RmHandler) Handle(ctx context.Context, name string) error {
 		return nil
 	}
 
-	if err := h.uc.Execute(ctx, name); err != nil {
-		if core.IsNotFound(err) {
-			fmt.Printf("[X] Error: no credential named %q found.\n", name)
-			return nil
-		}
-		fmt.Printf("[X] Could not delete credential: %s\n", err)
+	if printErr(h.uc.Execute(ctx, name), fmt.Sprintf("Error: no credential named %q found.", name)) {
 		return nil
 	}
 

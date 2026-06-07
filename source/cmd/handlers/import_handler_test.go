@@ -1,4 +1,4 @@
-package handlers_test
+﻿package handlers_test
 
 import (
 	"context"
@@ -8,26 +8,25 @@ import (
 	"testing"
 
 	"vextpss/source/cmd/handlers"
-	"vextpss/source/cmd/helpers"
+	"vextpss/source/cmd/ui"
 	"vextpss/source/core"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
-func newImportHandler(repo *mocks.MockRepository, enc *mocks.MockEncryptor, prompter helpers.Prompter) *handlers.ImportHandler {
-	uc := apps.NewImportSecretsUC(repo, enc)
+func newImportHandler(repo *testutil.MockRepository, enc *testutil.MockEncryptor, prompter ui.Prompter) *handlers.ImportHandler {
+	uc := app.NewImportSecretsUC(repo, enc)
 	return handlers.NewImportHandler(uc, prompter)
 }
 
-func makeExportFile(t *testing.T, records []dal.FullRecord, masterPw []byte) string {
+func makeExportFile(t *testing.T, records []core.FullRecord, masterPw []byte) string {
 	t.Helper()
 	outPath := filepath.Join(t.TempDir(), "export.vext")
-	exportRepo := &mocks.MockRepository{
-		GetAllFn: func(_ context.Context) ([]dal.FullRecord, error) { return records, nil },
+	exportRepo := &testutil.MockRepository{
+		GetAllFn: func(_ context.Context) ([]core.FullRecord, error) { return records, nil },
 	}
-	exportUC := apps.NewExportSecretsUC(exportRepo, &mocks.MockEncryptor{})
-	if _, err := exportUC.Execute(context.Background(), apps.ExportSecretsRequest{
+	exportUC := app.NewExportSecretsUC(exportRepo, &testutil.MockEncryptor{})
+	if _, err := exportUC.Execute(context.Background(), app.ExportSecretsRequest{
 		MasterPassword: masterPw,
 		OutputPath:     outPath,
 	}); err != nil {
@@ -37,7 +36,7 @@ func makeExportFile(t *testing.T, records []dal.FullRecord, masterPw []byte) str
 }
 
 func TestImportHandler_Handle_Success(t *testing.T) {
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "github", Type: "account", Salt: []byte("stub-salt-16byte"), Nonce: []byte("stub-nonce-12b")},
 			Encrypted: encryptedAccount("alice", "pass"),
@@ -49,8 +48,8 @@ func TestImportHandler_Handle_Success(t *testing.T) {
 	}
 	importPath := makeExportFile(t, records, []byte("master"))
 
-	prompter := &helpers.MockPrompter{PasswordBytes: []byte("master")}
-	h := newImportHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	prompter := &testutil.MockPrompter{PasswordBytes: []byte("master")}
+	h := newImportHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), importPath); err != nil {
@@ -67,7 +66,7 @@ func TestImportHandler_Handle_Success(t *testing.T) {
 }
 
 func TestImportHandler_Handle_SkipsExisting(t *testing.T) {
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "github", Type: "account", Salt: []byte("stub-salt-16byte"), Nonce: []byte("stub-nonce-12b")},
 			Encrypted: encryptedAccount("alice", "pass"),
@@ -75,13 +74,13 @@ func TestImportHandler_Handle_SkipsExisting(t *testing.T) {
 	}
 	importPath := makeExportFile(t, records, []byte("master"))
 
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, _ *core.Secret, _ []byte) error {
 			return core.ErrAlreadyExists
 		},
 	}
-	prompter := &helpers.MockPrompter{PasswordBytes: []byte("master")}
-	h := newImportHandler(repo, &mocks.MockEncryptor{}, prompter)
+	prompter := &testutil.MockPrompter{PasswordBytes: []byte("master")}
+	h := newImportHandler(repo, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		h.Handle(context.Background(), importPath) //nolint
@@ -96,8 +95,8 @@ func TestImportHandler_Handle_InvalidFile(t *testing.T) {
 	badPath := filepath.Join(t.TempDir(), "bad.vext")
 	os.WriteFile(badPath, []byte("not json"), 0600) //nolint
 
-	prompter := &helpers.MockPrompter{PasswordBytes: []byte("master")}
-	h := newImportHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	prompter := &testutil.MockPrompter{PasswordBytes: []byte("master")}
+	h := newImportHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		h.Handle(context.Background(), badPath) //nolint

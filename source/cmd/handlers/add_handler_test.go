@@ -1,4 +1,4 @@
-package handlers_test
+﻿package handlers_test
 
 import (
 	"context"
@@ -7,23 +7,23 @@ import (
 	"testing"
 
 	"vextpss/source/cmd/handlers"
-	"vextpss/source/cmd/helpers"
+	"vextpss/source/cmd/ui"
 	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
-func newAddHandler(repo *mocks.MockRepository, enc *mocks.MockEncryptor, prompter helpers.Prompter) *handlers.AddHandler {
-	uc := apps.NewStoreSecretUC(repo, enc)
+func newAddHandler(repo *testutil.MockRepository, enc *testutil.MockEncryptor, prompter ui.Prompter) *handlers.AddHandler {
+	uc := app.NewStoreSecretUC(repo, enc)
 	return handlers.NewAddHandler(uc, prompter)
 }
 
 func TestAddHandler_Handle_Success(t *testing.T) {
-	prompter := &helpers.MockPrompter{
+	prompter := &testutil.MockPrompter{
 		LineResponse:  "alice",
 		PasswordBytes: []byte("s3cr3t"),
 	}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), "github", "account", false, 20, true); err != nil {
@@ -40,16 +40,16 @@ func TestAddHandler_Handle_Success(t *testing.T) {
 }
 
 func TestAddHandler_Handle_AlreadyExists(t *testing.T) {
-	prompter := &helpers.MockPrompter{
+	prompter := &testutil.MockPrompter{
 		LineResponse:  "alice",
 		PasswordBytes: []byte("pass"),
 	}
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, _ *core.Secret, _ []byte) error {
 			return core.ErrAlreadyExists
 		},
 	}
-	h := newAddHandler(repo, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(repo, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), "github", "account", false, 20, true); err != nil {
@@ -64,11 +64,11 @@ func TestAddHandler_Handle_AlreadyExists(t *testing.T) {
 
 func TestAddHandler_Handle_DomainValidationError(t *testing.T) {
 	// Empty username triggers domain validation error inside the UC.
-	prompter := &helpers.MockPrompter{
+	prompter := &testutil.MockPrompter{
 		LineResponse:  "",
 		PasswordBytes: []byte("pass"),
 	}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), "svc", "account", false, 20, true); err != nil {
@@ -82,10 +82,10 @@ func TestAddHandler_Handle_DomainValidationError(t *testing.T) {
 }
 
 func TestAddHandler_Handle_ReadLineError(t *testing.T) {
-	prompter := &helpers.MockPrompter{
+	prompter := &testutil.MockPrompter{
 		Err: errors.New("stdin closed"),
 	}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	err := h.Handle(context.Background(), "svc", "account", false, 20, true)
 	if err == nil {
@@ -101,7 +101,7 @@ func TestAddHandler_Handle_ReadPasswordError(t *testing.T) {
 			{nil, errors.New("no tty")},
 		},
 	}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	err := h.Handle(context.Background(), "svc", "account", false, 20, true)
 	if err == nil {
@@ -110,11 +110,11 @@ func TestAddHandler_Handle_ReadPasswordError(t *testing.T) {
 }
 
 func TestAddHandler_Handle_Generate(t *testing.T) {
-	prompter := &helpers.MockPrompter{
+	prompter := &testutil.MockPrompter{
 		LineResponse:  "alice",
 		PasswordBytes: []byte("masterpass"),
 	}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), "twitter", "account", true, 20, true); err != nil {
@@ -148,7 +148,7 @@ func TestAddHandler_Handle_CreditSuccess(t *testing.T) {
 			{[]byte("masterpass"), nil}, // master password
 		},
 	}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), "visa-debit", "credit", false, 0, false); err != nil {
@@ -165,8 +165,8 @@ func TestAddHandler_Handle_CreditSuccess(t *testing.T) {
 }
 
 func TestAddHandler_Handle_UnknownType(t *testing.T) {
-	prompter := &helpers.MockPrompter{}
-	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+	prompter := &testutil.MockPrompter{}
+	h := newAddHandler(&testutil.MockRepository{}, &testutil.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
 		if err := h.Handle(context.Background(), "svc", "note", false, 0, false); err != nil {

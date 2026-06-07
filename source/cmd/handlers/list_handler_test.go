@@ -1,4 +1,4 @@
-package handlers_test
+﻿package handlers_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 
 	"vextpss/source/cmd/handlers"
 	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 func TestListHandler_Handle_WithSecrets(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		ListAllFn: func(_ context.Context) ([]core.Secret, error) {
 			return []core.Secret{
 				{Name: "github", Type: "account", CreatedAt: time.Now()},
@@ -22,7 +22,7 @@ func TestListHandler_Handle_WithSecrets(t *testing.T) {
 			}, nil
 		},
 	}
-	uc := apps.NewListSecretsUC(repo)
+	uc := app.NewListSecretsUC(repo)
 	h := handlers.NewListHandler(uc)
 
 	out := captureStdout(t, func() {
@@ -40,12 +40,12 @@ func TestListHandler_Handle_WithSecrets(t *testing.T) {
 }
 
 func TestListHandler_Handle_Empty(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		ListAllFn: func(_ context.Context) ([]core.Secret, error) {
 			return []core.Secret{}, nil
 		},
 	}
-	uc := apps.NewListSecretsUC(repo)
+	uc := app.NewListSecretsUC(repo)
 	h := handlers.NewListHandler(uc)
 
 	out := captureStdout(t, func() {
@@ -60,12 +60,12 @@ func TestListHandler_Handle_Empty(t *testing.T) {
 }
 
 func TestListHandler_Handle_RepoError(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		ListAllFn: func(_ context.Context) ([]core.Secret, error) {
 			return nil, errors.New("db down")
 		},
 	}
-	uc := apps.NewListSecretsUC(repo)
+	uc := app.NewListSecretsUC(repo)
 	h := handlers.NewListHandler(uc)
 
 	out := captureStdout(t, func() {

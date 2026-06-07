@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -8,19 +8,18 @@ import (
 	"testing"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 // buildExportFile creates a .vext file on disk using the real ExportSecretsUC
 // so ImportSecretsUC tests operate on a genuine export.
-func buildExportFile(t *testing.T, records []dal.FullRecord, masterPw []byte) string {
+func buildExportFile(t *testing.T, records []core.FullRecord, masterPw []byte) string {
 	t.Helper()
 	outPath := filepath.Join(t.TempDir(), "export.vext")
-	repo := &mocks.MockRepository{GetAllFn: makeGetAllFn(records)}
-	exportUC := apps.NewExportSecretsUC(repo, &mocks.MockEncryptor{})
-	if _, err := exportUC.Execute(context.Background(), apps.ExportSecretsRequest{
+	repo := &testutil.MockRepository{GetAllFn: makeGetAllFn(records)}
+	exportUC := app.NewExportSecretsUC(repo, &testutil.MockEncryptor{})
+	if _, err := exportUC.Execute(context.Background(), app.ExportSecretsRequest{
 		MasterPassword: masterPw,
 		OutputPath:     outPath,
 	}); err != nil {
@@ -30,7 +29,7 @@ func buildExportFile(t *testing.T, records []dal.FullRecord, masterPw []byte) st
 }
 
 func TestImportSecretsUC_Execute_Success(t *testing.T) {
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "github", Type: "account", Salt: []byte("stub-salt-16byte"), Nonce: []byte("stub-nonce-12b")},
 			Encrypted: encryptedAccountPayload("alice", "hunter2"),
@@ -42,10 +41,10 @@ func TestImportSecretsUC_Execute_Success(t *testing.T) {
 	}
 	exportPath := buildExportFile(t, records, []byte("master"))
 
-	repo := &mocks.MockRepository{}
-	uc := apps.NewImportSecretsUC(repo, &mocks.MockEncryptor{})
+	repo := &testutil.MockRepository{}
+	uc := app.NewImportSecretsUC(repo, &testutil.MockEncryptor{})
 
-	resp, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	resp, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte("master"),
 		InputPath:      exportPath,
 	})
@@ -61,7 +60,7 @@ func TestImportSecretsUC_Execute_Success(t *testing.T) {
 }
 
 func TestImportSecretsUC_Execute_SkipsExisting(t *testing.T) {
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "github", Type: "account", Salt: []byte("stub-salt-16byte"), Nonce: []byte("stub-nonce-12b")},
 			Encrypted: encryptedAccountPayload("alice", "pass"),
@@ -69,14 +68,14 @@ func TestImportSecretsUC_Execute_SkipsExisting(t *testing.T) {
 	}
 	exportPath := buildExportFile(t, records, []byte("master"))
 
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, _ *core.Secret, _ []byte) error {
 			return core.ErrAlreadyExists
 		},
 	}
-	uc := apps.NewImportSecretsUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewImportSecretsUC(repo, &testutil.MockEncryptor{})
 
-	resp, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	resp, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte("master"),
 		InputPath:      exportPath,
 	})
@@ -94,14 +93,14 @@ func TestImportSecretsUC_Execute_SkipsExisting(t *testing.T) {
 func TestImportSecretsUC_Execute_WrongMasterPassword(t *testing.T) {
 	exportPath := buildExportFile(t, nil, []byte("master"))
 
-	enc := &mocks.MockEncryptor{
+	enc := &testutil.MockEncryptor{
 		DecryptFn: func(_ context.Context, _ []byte, _ []byte, _ []byte, _ []byte) ([]byte, error) {
 			return nil, core.ErrDecryptionFailed
 		},
 	}
-	uc := apps.NewImportSecretsUC(&mocks.MockRepository{}, enc)
+	uc := app.NewImportSecretsUC(&testutil.MockRepository{}, enc)
 
-	_, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	_, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte("wrong"),
 		InputPath:      exportPath,
 	})
@@ -114,8 +113,8 @@ func TestImportSecretsUC_Execute_InvalidFile(t *testing.T) {
 	badPath := filepath.Join(t.TempDir(), "bad.vext")
 	os.WriteFile(badPath, []byte("not json"), 0600) //nolint
 
-	uc := apps.NewImportSecretsUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
-	_, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	uc := app.NewImportSecretsUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
+	_, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte("master"),
 		InputPath:      badPath,
 	})
@@ -125,8 +124,8 @@ func TestImportSecretsUC_Execute_InvalidFile(t *testing.T) {
 }
 
 func TestImportSecretsUC_Execute_MissingFile(t *testing.T) {
-	uc := apps.NewImportSecretsUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
-	_, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	uc := app.NewImportSecretsUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
+	_, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte("master"),
 		InputPath:      "/nonexistent/path.vext",
 	})
@@ -136,8 +135,8 @@ func TestImportSecretsUC_Execute_MissingFile(t *testing.T) {
 }
 
 func TestImportSecretsUC_Execute_EmptyMasterPassword(t *testing.T) {
-	uc := apps.NewImportSecretsUC(&mocks.MockRepository{}, &mocks.MockEncryptor{})
-	_, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	uc := app.NewImportSecretsUC(&testutil.MockRepository{}, &testutil.MockEncryptor{})
+	_, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte{},
 		InputPath:      "some.vext",
 	})
@@ -147,7 +146,7 @@ func TestImportSecretsUC_Execute_EmptyMasterPassword(t *testing.T) {
 }
 
 func TestImportExportRoundtrip(t *testing.T) {
-	records := []dal.FullRecord{
+	records := []core.FullRecord{
 		{
 			Secret:    core.Secret{Name: "github", Type: "account", Salt: []byte("stub-salt-16byte"), Nonce: []byte("stub-nonce-12b")},
 			Encrypted: encryptedAccountPayload("alice", "hunter2"),
@@ -157,16 +156,16 @@ func TestImportExportRoundtrip(t *testing.T) {
 
 	var savedSecret *core.Secret
 	var savedCiphertext []byte
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		SaveFn: func(_ context.Context, s *core.Secret, enc []byte) error {
 			savedSecret = s
 			savedCiphertext = enc
 			return nil
 		},
 	}
-	uc := apps.NewImportSecretsUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewImportSecretsUC(repo, &testutil.MockEncryptor{})
 
-	resp, err := uc.Execute(context.Background(), apps.ImportSecretsRequest{
+	resp, err := uc.Execute(context.Background(), app.ImportSecretsRequest{
 		MasterPassword: []byte("master"),
 		InputPath:      exportPath,
 	})

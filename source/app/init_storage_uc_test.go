@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 func TestInitStorageUC_Execute_Success(t *testing.T) {
@@ -22,8 +22,8 @@ func TestInitStorageUC_Execute_Success(t *testing.T) {
 	}
 	f.Close()
 
-	init := &mocks.MockInitialiser{DBPathVal: dbFile}
-	uc := apps.NewInitStorageUC(init)
+	init := &testutil.MockInitialiser{DBPathVal: dbFile}
+	uc := app.NewInitStorageUC(init)
 
 	if err := uc.Execute(context.Background()); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -32,10 +32,10 @@ func TestInitStorageUC_Execute_Success(t *testing.T) {
 
 func TestInitStorageUC_Execute_InitError(t *testing.T) {
 	initErr := errors.New("could not create directory")
-	init := &mocks.MockInitialiser{
+	init := &testutil.MockInitialiser{
 		InitFn: func(_ context.Context) error { return initErr },
 	}
-	uc := apps.NewInitStorageUC(init)
+	uc := app.NewInitStorageUC(init)
 
 	err := uc.Execute(context.Background())
 	if err == nil {
@@ -45,8 +45,8 @@ func TestInitStorageUC_Execute_InitError(t *testing.T) {
 
 func TestInitStorageUC_Execute_ChmodError(t *testing.T) {
 	// Init succeeds but DBPath points to a non-existent file → Chmod fails.
-	init := &mocks.MockInitialiser{DBPathVal: "/nonexistent/path/vext.db"}
-	uc := apps.NewInitStorageUC(init)
+	init := &testutil.MockInitialiser{DBPathVal: "/nonexistent/path/vext.db"}
+	uc := app.NewInitStorageUC(init)
 
 	err := uc.Execute(context.Background())
 	if err == nil {

@@ -1,4 +1,4 @@
-package apps_test
+﻿package app_test
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
-	"vextpss/source/pkg/apps"
-	"vextpss/source/tests/mocks"
+	"vextpss/source/app"
+	"vextpss/source/testutil"
 )
 
 func makeAccountPayload(t *testing.T, username string, password []byte) []byte {
@@ -25,7 +25,7 @@ func makeAccountPayload(t *testing.T, username string, password []byte) []byte {
 func TestRetrieveSecretUC_Execute_Success(t *testing.T) {
 	payload := makeAccountPayload(t, "alice", []byte("s3cr3t"))
 
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
 			return &core.Secret{
 				Name:      name,
@@ -37,10 +37,10 @@ func TestRetrieveSecretUC_Execute_Success(t *testing.T) {
 		},
 	}
 	// Transparent decryptor: returns ciphertext as plaintext.
-	enc := &mocks.MockEncryptor{}
-	uc := apps.NewRetrieveSecretUC(repo, enc)
+	enc := &testutil.MockEncryptor{}
+	uc := app.NewRetrieveSecretUC(repo, enc)
 
-	req := apps.RetrieveSecretRequest{Name: "github", MasterPassword: []byte("master")}
+	req := app.RetrieveSecretRequest{Name: "github", MasterPassword: []byte("master")}
 	resp, err := uc.Execute(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -61,14 +61,14 @@ func TestRetrieveSecretUC_Execute_Success(t *testing.T) {
 }
 
 func TestRetrieveSecretUC_Execute_NotFound(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, _ string) (*core.Secret, []byte, error) {
 			return nil, nil, core.ErrSecretNotFound
 		},
 	}
-	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewRetrieveSecretUC(repo, &testutil.MockEncryptor{})
 
-	_, err := uc.Execute(context.Background(), apps.RetrieveSecretRequest{
+	_, err := uc.Execute(context.Background(), app.RetrieveSecretRequest{
 		Name:           "missing",
 		MasterPassword: []byte("master"),
 	})
@@ -78,19 +78,19 @@ func TestRetrieveSecretUC_Execute_NotFound(t *testing.T) {
 }
 
 func TestRetrieveSecretUC_Execute_DecryptionFailed(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
 			return &core.Secret{Name: name, Type: "account"}, []byte("encrypted"), nil
 		},
 	}
-	enc := &mocks.MockEncryptor{
+	enc := &testutil.MockEncryptor{
 		DecryptFn: func(_ context.Context, _, _, _, _ []byte) ([]byte, error) {
 			return nil, core.ErrDecryptionFailed
 		},
 	}
-	uc := apps.NewRetrieveSecretUC(repo, enc)
+	uc := app.NewRetrieveSecretUC(repo, enc)
 
-	_, err := uc.Execute(context.Background(), apps.RetrieveSecretRequest{
+	_, err := uc.Execute(context.Background(), app.RetrieveSecretRequest{
 		Name:           "svc",
 		MasterPassword: []byte("wrong"),
 	})
@@ -103,14 +103,14 @@ func TestRetrieveSecretUC_Execute_DecryptionFailed(t *testing.T) {
 }
 
 func TestRetrieveSecretUC_Execute_RepoError(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, _ string) (*core.Secret, []byte, error) {
 			return nil, nil, errors.New("db down")
 		},
 	}
-	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewRetrieveSecretUC(repo, &testutil.MockEncryptor{})
 
-	_, err := uc.Execute(context.Background(), apps.RetrieveSecretRequest{
+	_, err := uc.Execute(context.Background(), app.RetrieveSecretRequest{
 		Name:           "svc",
 		MasterPassword: []byte("master"),
 	})
@@ -129,14 +129,14 @@ func TestRetrieveSecretUC_Execute_CreditSuccess(t *testing.T) {
 	}
 	b, _ := json.Marshal(creditPayload)
 
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
 			return &core.Secret{Name: name, Type: "credit", CreatedAt: time.Now()}, b, nil
 		},
 	}
-	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewRetrieveSecretUC(repo, &testutil.MockEncryptor{})
 
-	resp, err := uc.Execute(context.Background(), apps.RetrieveSecretRequest{
+	resp, err := uc.Execute(context.Background(), app.RetrieveSecretRequest{
 		Name:           "visa-debit",
 		MasterPassword: []byte("master"),
 	})
@@ -156,14 +156,14 @@ func TestRetrieveSecretUC_Execute_CreditSuccess(t *testing.T) {
 }
 
 func TestRetrieveSecretUC_Execute_UnknownSecretType(t *testing.T) {
-	repo := &mocks.MockRepository{
+	repo := &testutil.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
 			return &core.Secret{Name: name, Type: "note"}, []byte(`{}`), nil
 		},
 	}
-	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+	uc := app.NewRetrieveSecretUC(repo, &testutil.MockEncryptor{})
 
-	_, err := uc.Execute(context.Background(), apps.RetrieveSecretRequest{
+	_, err := uc.Execute(context.Background(), app.RetrieveSecretRequest{
 		Name:           "svc",
 		MasterPassword: []byte("master"),
 	})

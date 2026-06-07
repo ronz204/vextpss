@@ -1,4 +1,4 @@
-package helpers_test
+﻿package ui_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"vextpss/source/cmd/helpers"
+	"vextpss/source/cmd/ui"
 	"vextpss/source/core"
 	"vextpss/source/core/secrets"
 )
@@ -41,7 +41,7 @@ func TestPrintSecret_AccountSecret(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		helpers.PrintSecret("github", payload)
+		ui.PrintSecret("github", payload)
 	})
 
 	if !strings.Contains(out, "github") {
@@ -60,7 +60,7 @@ func TestPrintSecret_UnknownType(t *testing.T) {
 	var unknown core.SecretPayload = &unknownPayload{}
 
 	out := captureStdout(t, func() {
-		helpers.PrintSecret("svc", unknown)
+		ui.PrintSecret("svc", unknown)
 	})
 
 	if !strings.Contains(out, "svc") {
@@ -73,7 +73,7 @@ func TestPrintSecret_UnknownType(t *testing.T) {
 
 func TestPrintSecretList_Empty(t *testing.T) {
 	out := captureStdout(t, func() {
-		helpers.PrintSecretList([]core.Secret{})
+		ui.PrintSecretList([]core.Secret{})
 	})
 
 	if !strings.Contains(out, "No secrets stored") {
@@ -88,7 +88,7 @@ func TestPrintSecretList_WithSecrets(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		helpers.PrintSecretList(secrets)
+		ui.PrintSecretList(secrets)
 	})
 
 	if !strings.Contains(out, "github") {
@@ -115,7 +115,7 @@ func TestPrintSecret_CreditSecret_RequiredFields(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		helpers.PrintSecret("visa-debit", payload)
+		ui.PrintSecret("visa-debit", payload)
 	})
 
 	if !strings.Contains(out, "visa-debit") {
@@ -150,7 +150,7 @@ func TestPrintSecret_CreditSecret_OptionalFieldsShown(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		helpers.PrintSecret("visa-debit", payload)
+		ui.PrintSecret("visa-debit", payload)
 	})
 
 	if !strings.Contains(out, "user@bank.com") {
@@ -180,7 +180,7 @@ func TestPrintSecret_CreditSecret_OptionalFieldsOmitted(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		helpers.PrintSecret("visa-debit", payload)
+		ui.PrintSecret("visa-debit", payload)
 	})
 
 	if strings.Contains(out, "Bank Username:") {
@@ -191,5 +191,6 @@ func TestPrintSecret_CreditSecret_OptionalFieldsOmitted(t *testing.T) {
 // unknownPayload is a test stub for a secret type the formatter does not know.
 type unknownPayload struct{}
 
-func (u *unknownPayload) GetType() string { return "unknown" }
-func (u *unknownPayload) Validate() error { return nil }
+func (u *unknownPayload) GetType() string                     { return "unknown" }
+func (u *unknownPayload) Validate() error                     { return nil }
+func (u *unknownPayload) MergeFrom(_ core.SecretPayload)      {}

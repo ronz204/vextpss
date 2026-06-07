@@ -1,23 +1,23 @@
-package handlers
+﻿package handlers
 
 import (
 	"context"
 	"fmt"
 
-	"vextpss/source/cmd/helpers"
+	"vextpss/source/cmd/ui"
 	"vextpss/source/core"
-	"vextpss/source/pkg/apps"
+	"vextpss/source/app"
 
 	"github.com/spf13/cobra"
 )
 
 // AddHandler handles the `vext add <name>` command.
 type AddHandler struct {
-	uc       *apps.StoreSecretUC
-	prompter helpers.Prompter
+	uc       *app.StoreSecretUC
+	prompter ui.Prompter
 }
 
-func NewAddHandler(uc *apps.StoreSecretUC, prompter helpers.Prompter) *AddHandler {
+func NewAddHandler(uc *app.StoreSecretUC, prompter ui.Prompter) *AddHandler {
 	return &AddHandler{uc: uc, prompter: prompter}
 }
 
@@ -44,13 +44,17 @@ func (h *AddHandler) CobraCommand() *cobra.Command {
 }
 
 func (h *AddHandler) Handle(ctx context.Context, name string, secretType string, generate bool, genLength int, genSymbols bool) error {
-	opts := helpers.CollectorOptions{
+	if !guardInit(h.uc != nil) {
+		return nil
+	}
+
+	opts := ui.CollectorOptions{
 		Generate:   generate,
 		GenLength:  genLength,
 		GenSymbols: genSymbols,
 	}
 
-	collector, err := helpers.NewSecretCollector(secretType, opts)
+	collector, err := ui.NewSecretCollector(secretType, opts)
 	if err != nil {
 		fmt.Printf("[X] %s\n", err)
 		return nil
@@ -71,22 +75,18 @@ func (h *AddHandler) Handle(ctx context.Context, name string, secretType string,
 	}
 	defer h.prompter.Zero(masterPassword)
 
-	req := apps.StoreSecretRequest{
+	req := app.StoreSecretRequest{
 		Name:           name,
 		MasterPassword: masterPassword,
 		Payload:        payload,
 	}
 
-	if err := h.uc.Execute(ctx, req); err != nil {
-		if core.IsAlreadyExists(err) {
-			fmt.Printf("[X] Error: a credential named %q already exists. Use `vext update` to modify it.\n", name)
-			return nil
-		}
-		if core.IsDomainError(err) {
-			fmt.Printf("[X] %s\n", err)
-			return nil
-		}
-		fmt.Println("[X] An unexpected error occurred. Please try again.")
+	err = h.uc.Execute(ctx, req)
+	if core.IsAlreadyExists(err) {
+		fmt.Printf("[X] Error: a credential named %q already exists. Use `vext update` to modify it.\n", name)
+		return nil
+	}
+	if printErr(err, "") {
 		return nil
 	}
 
