@@ -105,8 +105,91 @@ func TestPrintSecretList_WithSecrets(t *testing.T) {
 	}
 }
 
+func TestPrintSecret_CreditSecret_RequiredFields(t *testing.T) {
+	payload := &secrets.CreditSecret{
+		Number:          "4532123456789012",
+		SecurityCode:    []byte("123"),
+		ExpirationMonth: 6,
+		ExpirationYear:  2028,
+		Pin:             []byte("1234"),
+	}
+
+	out := captureStdout(t, func() {
+		helpers.PrintSecret("visa-debit", payload)
+	})
+
+	if !strings.Contains(out, "visa-debit") {
+		t.Errorf("output %q should contain service name", out)
+	}
+	if !strings.Contains(out, "4532 1234 5678 9012") {
+		t.Errorf("output %q should contain formatted card number", out)
+	}
+	if !strings.Contains(out, "123") {
+		t.Errorf("output %q should contain security code", out)
+	}
+	if !strings.Contains(out, "06/2028") {
+		t.Errorf("output %q should contain expiration date", out)
+	}
+	if !strings.Contains(out, "1234") {
+		t.Errorf("output %q should contain PIN", out)
+	}
+}
+
+func TestPrintSecret_CreditSecret_OptionalFieldsShown(t *testing.T) {
+	payload := &secrets.CreditSecret{
+		Number:          "4532123456789012",
+		SecurityCode:    []byte("123"),
+		ExpirationMonth: 6,
+		ExpirationYear:  2028,
+		Pin:             []byte("1234"),
+		BankUsername:    "user@bank.com",
+		BankPassword:    []byte("bankpass"),
+		BankVirtualKey:  []byte("vk999"),
+		BankCellphone:   "+57 300 123 4567",
+		CountryCode:     "CO",
+	}
+
+	out := captureStdout(t, func() {
+		helpers.PrintSecret("visa-debit", payload)
+	})
+
+	if !strings.Contains(out, "user@bank.com") {
+		t.Errorf("output %q should contain bank username", out)
+	}
+	if !strings.Contains(out, "bankpass") {
+		t.Errorf("output %q should contain bank password", out)
+	}
+	if !strings.Contains(out, "vk999") {
+		t.Errorf("output %q should contain virtual key", out)
+	}
+	if !strings.Contains(out, "+57 300 123 4567") {
+		t.Errorf("output %q should contain cellphone", out)
+	}
+	if !strings.Contains(out, "CO") {
+		t.Errorf("output %q should contain country code", out)
+	}
+}
+
+func TestPrintSecret_CreditSecret_OptionalFieldsOmitted(t *testing.T) {
+	payload := &secrets.CreditSecret{
+		Number:          "4532123456789012",
+		SecurityCode:    []byte("123"),
+		ExpirationMonth: 6,
+		ExpirationYear:  2028,
+		Pin:             []byte("1234"),
+	}
+
+	out := captureStdout(t, func() {
+		helpers.PrintSecret("visa-debit", payload)
+	})
+
+	if strings.Contains(out, "Bank Username:") {
+		t.Errorf("output %q should not contain Bank Username: when bank username is empty", out)
+	}
+}
+
 // unknownPayload is a test stub for a secret type the formatter does not know.
 type unknownPayload struct{}
 
-func (u *unknownPayload) GetType() string  { return "unknown" }
-func (u *unknownPayload) Validate() error  { return nil }
+func (u *unknownPayload) GetType() string { return "unknown" }
+func (u *unknownPayload) Validate() error { return nil }
