@@ -42,17 +42,28 @@ Stores a new secret under the given name.
 ```
 vext add github
 vext add protonmail
+vext add --type credit visa-debit
+vext add --generate twitter
 ```
 
-**What it does:**
-1. Accepts `<name>` as the service identifier (must be unique).
-2. Prompts for the username (visible input).
-3. Prompts for the service password (hidden input).
-4. Prompts for the master password (hidden input).
-5. Derives an encryption key from the master password using Argon2id + a freshly generated Salt.
-6. Encrypts the payload JSON using AES-256-GCM + a freshly generated Nonce.
-7. Persists the record to SQLite.
-8. Zeros out sensitive values in memory.
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--type` | `account` | Secret type: `account` or `credit` |
+| `--generate` | false | Generate a random password instead of prompting (account only) |
+| `--gen-length` | 20 | Length of the generated password |
+| `--gen-no-symbols` | false | Exclude symbols from the generated password |
+
+**For `--type account`:**
+1. Prompts for username (visible).
+2. Prompts for password (hidden) — or generates one if `--generate` is set.
+3. Prompts for master password (hidden).
+
+**For `--type credit`:**
+1. Prompts for card number, CVV, expiration month/year, PIN (required).
+2. Prompts for bank name, bank username, bank password, virtual key, cellphone, country code (optional — leave blank to skip).
+3. Prompts for master password (hidden).
 
 **Requires master password:** Yes
 
@@ -68,7 +79,7 @@ vext add protonmail
 
 **Notes:**
 - `<name>` is case-sensitive. `github` and `GitHub` would be two different records.
-- The username prompt is visible (not hidden) because usernames are not sensitive.
+- Secret data is never passed as a flag — all sensitive inputs are collected via hidden prompts.
 
 ---
 

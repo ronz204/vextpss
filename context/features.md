@@ -112,15 +112,18 @@ Phase 2 extends Vext beyond basic account credentials. The polymorphic database 
 
 ---
 
-### F-12 · Bank Card Credentials (`type: card`)
+### F-12 · Bank Card Credentials (`type: credit`)
 
-**What it is:** A new secret type for storing payment card data (card number, CVV, expiration date, PIN). Uses the same polymorphic storage model — no schema changes required.
+**What it is:** A new secret type for storing payment card data (card number, CVV, expiration date, PIN) plus optional bank portal fields. Uses the same polymorphic storage model — no schema changes required.
 
-**New commands it enables:**
-- `vext add --type card visa-debit`
+**Commands:**
+- `vext add --type credit visa-debit`
 - `vext get visa-debit`
 
-**Status:** Phase 2
+**Required fields:** card number, security code (CVV), expiration month/year, PIN.
+**Optional fields:** bank name, bank username, bank password, bank virtual key, cellphone, country code.
+
+**Status:** Phase 2 ✓ (implemented in 0003)
 
 ---
 
