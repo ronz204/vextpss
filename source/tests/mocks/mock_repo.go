@@ -4,15 +4,14 @@ import (
 	"context"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
 )
 
-// MockRepository is a configurable test double for dal.SecretRepository.
+// MockRepository is a configurable test double for core.SecretRepository.
 type MockRepository struct {
 	SaveFn      func(ctx context.Context, secret *core.Secret, encrypted []byte) error
 	GetByNameFn func(ctx context.Context, name string) (*core.Secret, []byte, error)
 	ListAllFn   func(ctx context.Context) ([]core.Secret, error)
-	GetAllFn    func(ctx context.Context) ([]dal.FullRecord, error)
+	GetAllFn    func(ctx context.Context) ([]core.FullRecord, error)
 	DeleteFn    func(ctx context.Context, name string) error
 	UpdateFn    func(ctx context.Context, secret *core.Secret, encrypted []byte) error
 }
@@ -38,7 +37,7 @@ func (m *MockRepository) ListAll(ctx context.Context) ([]core.Secret, error) {
 	return nil, nil
 }
 
-func (m *MockRepository) GetAll(ctx context.Context) ([]dal.FullRecord, error) {
+func (m *MockRepository) GetAll(ctx context.Context) ([]core.FullRecord, error) {
 	if m.GetAllFn != nil {
 		return m.GetAllFn(ctx)
 	}

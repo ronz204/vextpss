@@ -82,15 +82,15 @@ func (r *SQLiteRepository) ListAll(ctx context.Context) ([]core.Secret, error) {
 	return secrets, nil
 }
 
-func (r *SQLiteRepository) GetAll(ctx context.Context) ([]dal.FullRecord, error) {
+func (r *SQLiteRepository) GetAll(ctx context.Context) ([]core.FullRecord, error) {
 	var records []dal.SecretRecord
 	result := r.db.WithContext(ctx).Order("name asc").Find(&records)
 	if result.Error != nil {
 		return nil, fmt.Errorf("get all failed: %w", result.Error)
 	}
-	full := make([]dal.FullRecord, len(records))
+	full := make([]core.FullRecord, len(records))
 	for i, rec := range records {
-		full[i] = dal.FullRecord{
+		full[i] = core.FullRecord{
 			Secret: core.Secret{
 				ID:        core.SecretID(rec.ID),
 				Name:      rec.Name,
