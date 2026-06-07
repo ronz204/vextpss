@@ -21,7 +21,10 @@ type CreditSecret struct {
 	CountryCode     string `json:"country_code"`
 }
 
-func (c *CreditSecret) GetType() string { return "credit" }
+func (c *CreditSecret) GetType() string { return TypeCredit }
+
+// MergeFrom is a no-op for CreditSecret: all fields are replaced on update.
+func (c *CreditSecret) MergeFrom(_ core.SecretPayload) {}
 
 func (c *CreditSecret) Validate() error {
 	if c.Number == "" {

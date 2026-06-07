@@ -9,7 +9,17 @@ type AccountSecret struct {
 	Password []byte `json:"password"`
 }
 
-func (a *AccountSecret) GetType() string { return "account" }
+func (a *AccountSecret) GetType() string { return TypeAccount }
+
+func (a *AccountSecret) MergeFrom(current core.SecretPayload) {
+	cur, ok := current.(*AccountSecret)
+	if !ok || cur == nil {
+		return
+	}
+	if a.Username == "" {
+		a.Username = cur.Username
+	}
+}
 
 func (a *AccountSecret) Validate() error {
 	if a.Username == "" {

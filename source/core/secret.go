@@ -21,4 +21,7 @@ type Secret struct {
 type SecretPayload interface {
 	GetType() string
 	Validate() error
+	// MergeFrom fills any zero-value fields from current. Called during update
+	// so the handler stays type-agnostic — each type decides what merging means.
+	MergeFrom(current SecretPayload)
 }
