@@ -1,4 +1,4 @@
-package configs
+﻿package config
 
 import (
 	"fmt"
@@ -14,7 +14,6 @@ const (
 // AppConfig holds all runtime configuration for the application.
 type AppConfig struct {
 	DBPath string
-	AppDir string
 }
 
 // Load resolves OS-appropriate paths and returns the application config.
@@ -28,6 +27,5 @@ func Load() (*AppConfig, error) {
 	appDir := filepath.Join(configDir, appDirName)
 	return &AppConfig{
 		DBPath: filepath.Join(appDir, dbFileName),
-		AppDir: appDir,
 	}, nil
 }
