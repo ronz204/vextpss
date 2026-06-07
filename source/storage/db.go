@@ -1,4 +1,4 @@
-package dal
+package storage
 
 import (
 	"fmt"
@@ -9,7 +9,8 @@ import (
 )
 
 // Open opens a GORM connection to the SQLite database at path.
-// Logging is silenced so SQL never reaches the user's terminal.
+// To target a different database, replace sqlite.Open() with the desired driver
+// and update SecretRecord's GORM type tags accordingly (e.g. "type:bytea" for PostgreSQL).
 func Open(path string) (*gorm.DB, error) {
 	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

@@ -1,4 +1,4 @@
-package dal
+﻿package storage
 
 import (
 	"context"
@@ -10,11 +10,10 @@ import (
 // Initialiser manages the one-time database setup needed by InitStorageUC.
 type Initialiser struct {
 	dbPath string
-	appDir string
 }
 
-func NewInitialiser(dbPath, appDir string) *Initialiser {
-	return &Initialiser{dbPath: dbPath, appDir: appDir}
+func NewInitialiser(dbPath string) *Initialiser {
+	return &Initialiser{dbPath: dbPath}
 }
 
 func (i *Initialiser) DBPath() string { return i.dbPath }

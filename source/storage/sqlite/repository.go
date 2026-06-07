@@ -1,4 +1,4 @@
-package repos
+﻿package sqlite
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"vextpss/source/core"
-	"vextpss/source/dal"
+	"vextpss/source/storage"
 
 	"gorm.io/gorm"
 )
@@ -22,7 +22,7 @@ func NewSQLiteRepository(db *gorm.DB) *SQLiteRepository {
 }
 
 func (r *SQLiteRepository) Save(ctx context.Context, secret *core.Secret, encrypted []byte) error {
-	record := &dal.SecretRecord{
+	record := &storage.SecretRecord{
 		Name:      secret.Name,
 		Type:      secret.Type,
 		Salt:      secret.Salt,
@@ -40,7 +40,7 @@ func (r *SQLiteRepository) Save(ctx context.Context, secret *core.Secret, encryp
 }
 
 func (r *SQLiteRepository) GetByName(ctx context.Context, name string) (*core.Secret, []byte, error) {
-	var record dal.SecretRecord
+	var record storage.SecretRecord
 	result := r.db.WithContext(ctx).Where("name = ?", name).First(&record)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil, core.ErrSecretNotFound
@@ -61,7 +61,7 @@ func (r *SQLiteRepository) GetByName(ctx context.Context, name string) (*core.Se
 }
 
 func (r *SQLiteRepository) ListAll(ctx context.Context) ([]core.Secret, error) {
-	var records []dal.SecretRecord
+	var records []storage.SecretRecord
 	result := r.db.WithContext(ctx).
 		Select("id, name, type, created_at, updated_at").
 		Order("name asc").
@@ -83,7 +83,7 @@ func (r *SQLiteRepository) ListAll(ctx context.Context) ([]core.Secret, error) {
 }
 
 func (r *SQLiteRepository) GetAll(ctx context.Context) ([]core.FullRecord, error) {
-	var records []dal.SecretRecord
+	var records []storage.SecretRecord
 	result := r.db.WithContext(ctx).Order("name asc").Find(&records)
 	if result.Error != nil {
 		return nil, fmt.Errorf("get all failed: %w", result.Error)
@@ -107,7 +107,7 @@ func (r *SQLiteRepository) GetAll(ctx context.Context) ([]core.FullRecord, error
 }
 
 func (r *SQLiteRepository) Delete(ctx context.Context, name string) error {
-	result := r.db.WithContext(ctx).Where("name = ?", name).Delete(&dal.SecretRecord{})
+	result := r.db.WithContext(ctx).Where("name = ?", name).Delete(&storage.SecretRecord{})
 	if result.Error != nil {
 		return fmt.Errorf("delete failed: %w", result.Error)
 	}
@@ -119,7 +119,7 @@ func (r *SQLiteRepository) Delete(ctx context.Context, name string) error {
 
 func (r *SQLiteRepository) Update(ctx context.Context, secret *core.Secret, encrypted []byte) error {
 	result := r.db.WithContext(ctx).
-		Model(&dal.SecretRecord{}).
+		Model(&storage.SecretRecord{}).
 		Where("name = ?", secret.Name).
 		Updates(map[string]any{
 			"salt":       secret.Salt,
@@ -137,5 +137,9 @@ func (r *SQLiteRepository) Update(ctx context.Context, secret *core.Secret, encr
 }
 
 func isUniqueConstraintError(err error) bool {
+	// "UNIQUE constraint failed" is stable SQLite core messaging (SQLite docs §4.1).
+	// Importing modernc.org/sqlite directly for error-code comparison would conflict with
+	// github.com/glebarez/go-sqlite (which also registers the "sqlite" driver), causing a
+	// panic at startup. String matching is safe and sufficient for a single-DB implementation.
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
