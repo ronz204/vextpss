@@ -7,7 +7,6 @@ import (
 	"vextpss/source/cmd/helpers"
 	"vextpss/source/core"
 	"vextpss/source/pkg/apps"
-	"vextpss/source/pkg/shared"
 
 	"github.com/spf13/cobra"
 )
@@ -23,6 +22,7 @@ func NewAddHandler(uc *apps.StoreSecretUC, prompter helpers.Prompter) *AddHandle
 }
 
 func (h *AddHandler) CobraCommand() *cobra.Command {
+	var secretType string
 	var generate bool
 	var genLength int
 	var genNoSymbols bool
@@ -30,39 +30,40 @@ func (h *AddHandler) CobraCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Store a new credential",
-		Long:  "Interactively stores a new account credential under the given name.",
+		Long:  "Interactively stores a new credential under the given name. Use --type to specify the secret type (account, credit).",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return h.Handle(context.Background(), args[0], generate, genLength, !genNoSymbols)
+			return h.Handle(context.Background(), args[0], secretType, generate, genLength, !genNoSymbols)
 		},
 	}
-	cmd.Flags().BoolVar(&generate, "generate", false, "Generate a random password instead of prompting")
+	cmd.Flags().StringVar(&secretType, "type", "account", "Secret type: account or credit")
+	cmd.Flags().BoolVar(&generate, "generate", false, "Generate a random password instead of prompting (account only)")
 	cmd.Flags().IntVar(&genLength, "gen-length", 20, "Length of the generated password")
 	cmd.Flags().BoolVar(&genNoSymbols, "gen-no-symbols", false, "Exclude symbols from the generated password")
 	return cmd
 }
 
-func (h *AddHandler) Handle(ctx context.Context, name string, generate bool, genLength int, genSymbols bool) error {
-	username, err := h.prompter.ReadLine("Username: ")
-	if err != nil {
-		return fmt.Errorf("could not read username: %w", err)
+func (h *AddHandler) Handle(ctx context.Context, name string, secretType string, generate bool, genLength int, genSymbols bool) error {
+	opts := helpers.CollectorOptions{
+		Generate:   generate,
+		GenLength:  genLength,
+		GenSymbols: genSymbols,
 	}
 
-	var password []byte
-	if generate {
-		pw, err := shared.GeneratePassword(genLength, genSymbols)
-		if err != nil {
-			return fmt.Errorf("failed to generate password: %w", err)
-		}
-		password = []byte(pw)
-		fmt.Printf("Generated password: %s\n", pw)
-	} else {
-		password, err = h.prompter.ReadPassword("Password: ")
-		if err != nil {
-			return fmt.Errorf("could not read password: %w", err)
-		}
+	collector, err := helpers.NewSecretCollector(secretType, opts)
+	if err != nil {
+		fmt.Printf("[X] %s\n", err)
+		return nil
 	}
-	defer h.prompter.Zero(password)
+
+	payload, err := collector.Collect(h.prompter)
+	if err != nil {
+		if core.IsDomainError(err) {
+			fmt.Printf("[X] %s\n", err)
+			return nil
+		}
+		return fmt.Errorf("input collection failed: %w", err)
+	}
 
 	masterPassword, err := h.prompter.ReadPassword("Master Password: ")
 	if err != nil {
@@ -71,11 +72,9 @@ func (h *AddHandler) Handle(ctx context.Context, name string, generate bool, gen
 	defer h.prompter.Zero(masterPassword)
 
 	req := apps.StoreSecretRequest{
-		Name:            name,
-		Type:            "account",
-		MasterPassword:  masterPassword,
-		AccountUsername: username,
-		AccountPassword: password,
+		Name:           name,
+		MasterPassword: masterPassword,
+		Payload:        payload,
 	}
 
 	if err := h.uc.Execute(ctx, req); err != nil {

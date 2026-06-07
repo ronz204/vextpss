@@ -68,6 +68,12 @@ func deserialisePayload(secretType string, plaintext []byte) (core.SecretPayload
 			return nil, fmt.Errorf("failed to parse account secret: %w", err)
 		}
 		return &ap, nil
+	case "credit":
+		var cp secrets.CreditSecret
+		if err := json.Unmarshal(plaintext, &cp); err != nil {
+			return nil, fmt.Errorf("failed to parse credit secret: %w", err)
+		}
+		return &cp, nil
 	default:
 		return nil, fmt.Errorf("unknown secret type: %s", secretType)
 	}

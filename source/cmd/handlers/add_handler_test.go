@@ -26,7 +26,7 @@ func TestAddHandler_Handle_Success(t *testing.T) {
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "github", false, 20, true); err != nil {
+		if err := h.Handle(context.Background(), "github", "account", false, 20, true); err != nil {
 			t.Errorf("Handle() error = %v", err)
 		}
 	})
@@ -52,7 +52,7 @@ func TestAddHandler_Handle_AlreadyExists(t *testing.T) {
 	h := newAddHandler(repo, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "github", false, 20, true); err != nil {
+		if err := h.Handle(context.Background(), "github", "account", false, 20, true); err != nil {
 			t.Errorf("Handle() should not return error, got %v", err)
 		}
 	})
@@ -71,7 +71,7 @@ func TestAddHandler_Handle_DomainValidationError(t *testing.T) {
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "svc", false, 20, true); err != nil {
+		if err := h.Handle(context.Background(), "svc", "account", false, 20, true); err != nil {
 			t.Errorf("Handle() should not return error, got %v", err)
 		}
 	})
@@ -87,7 +87,7 @@ func TestAddHandler_Handle_ReadLineError(t *testing.T) {
 	}
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
-	err := h.Handle(context.Background(), "svc", false, 20, true)
+	err := h.Handle(context.Background(), "svc", "account", false, 20, true)
 	if err == nil {
 		t.Fatal("Handle() should return error when ReadLine fails")
 	}
@@ -103,7 +103,7 @@ func TestAddHandler_Handle_ReadPasswordError(t *testing.T) {
 	}
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
-	err := h.Handle(context.Background(), "svc", false, 20, true)
+	err := h.Handle(context.Background(), "svc", "account", false, 20, true)
 	if err == nil {
 		t.Fatal("Handle() should return error when ReadPassword fails")
 	}
@@ -117,7 +117,7 @@ func TestAddHandler_Handle_Generate(t *testing.T) {
 	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
 
 	out := captureStdout(t, func() {
-		if err := h.Handle(context.Background(), "twitter", true, 20, true); err != nil {
+		if err := h.Handle(context.Background(), "twitter", "account", true, 20, true); err != nil {
 			t.Errorf("Handle() with --generate error = %v", err)
 		}
 	})
@@ -127,5 +127,54 @@ func TestAddHandler_Handle_Generate(t *testing.T) {
 	}
 	if !strings.Contains(out, "[✓]") {
 		t.Errorf("output %q should contain success marker [✓]", out)
+	}
+}
+
+func TestAddHandler_Handle_CreditSuccess(t *testing.T) {
+	// Provide sequential responses for all credit card fields + master password.
+	prompter := &sequentialPrompter{
+		lineResponses: []string{
+			"4532123456789012", // card number
+			"6",               // expiration month
+			"2028",            // expiration year
+			"",                // bank username (skip)
+			"",                // cellphone (skip)
+			"",                // country code (skip)
+		},
+		passwordResponses: []passwordResponse{
+			{[]byte("123"), nil},        // security code
+			{[]byte("1234"), nil},       // PIN
+			{[]byte("vk123"), nil},      // virtual key
+			{[]byte("masterpass"), nil}, // master password
+		},
+	}
+	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+
+	out := captureStdout(t, func() {
+		if err := h.Handle(context.Background(), "visa-debit", "credit", false, 0, false); err != nil {
+			t.Errorf("Handle() credit error = %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "[✓]") {
+		t.Errorf("output %q should contain success marker [✓]", out)
+	}
+	if !strings.Contains(out, "visa-debit") {
+		t.Errorf("output %q should contain credential name", out)
+	}
+}
+
+func TestAddHandler_Handle_UnknownType(t *testing.T) {
+	prompter := &helpers.MockPrompter{}
+	h := newAddHandler(&mocks.MockRepository{}, &mocks.MockEncryptor{}, prompter)
+
+	out := captureStdout(t, func() {
+		if err := h.Handle(context.Background(), "svc", "note", false, 0, false); err != nil {
+			t.Errorf("Handle() should not return error for unknown type, got %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "[X]") {
+		t.Errorf("output %q should contain error marker [X]", out)
 	}
 }

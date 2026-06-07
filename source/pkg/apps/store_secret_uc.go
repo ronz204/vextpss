@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"vextpss/source/core"
-	"vextpss/source/core/secrets"
 	"vextpss/source/dal"
 	"vextpss/source/pkg/shared"
 	"vextpss/source/pkg/tokens"
@@ -23,37 +22,24 @@ func NewStoreSecretUC(repo dal.SecretRepository, enc tokens.Encryptor) *StoreSec
 }
 
 // StoreSecretRequest carries all inputs from the interface layer (CLI, HTTP, etc.).
+// The caller is responsible for building and providing the typed Payload.
 type StoreSecretRequest struct {
-	Name            string
-	Type            string // "account" — future: "card", "note"
-	MasterPassword  []byte
-	AccountUsername string
-	AccountPassword []byte
+	Name           string
+	MasterPassword []byte
+	Payload        core.SecretPayload
 }
 
 func (r *StoreSecretRequest) validate() error {
 	if r.Name == "" {
 		return core.NewDomainError("name is required")
 	}
-	if r.Type != "account" {
-		return core.NewDomainError("unsupported secret type")
-	}
 	if len(r.MasterPassword) == 0 {
 		return core.NewDomainError("master password is required")
 	}
-	return nil
-}
-
-func (r *StoreSecretRequest) buildPayload() (core.SecretPayload, error) {
-	switch r.Type {
-	case "account":
-		return &secrets.AccountSecret{
-			Username: r.AccountUsername,
-			Password: r.AccountPassword,
-		}, nil
-	default:
-		return nil, core.NewDomainError("unknown secret type")
+	if r.Payload == nil {
+		return core.NewDomainError("payload is required")
 	}
+	return nil
 }
 
 // Execute validates inputs, encrypts the payload, and delegates persistence to the repo.
@@ -62,16 +48,11 @@ func (uc *StoreSecretUC) Execute(ctx context.Context, req StoreSecretRequest) er
 		return err
 	}
 
-	payload, err := req.buildPayload()
-	if err != nil {
+	if err := req.Payload.Validate(); err != nil {
 		return err
 	}
 
-	if err := payload.Validate(); err != nil {
-		return err
-	}
-
-	plaintext, err := json.Marshal(payload)
+	plaintext, err := json.Marshal(req.Payload)
 	if err != nil {
 		return fmt.Errorf("serialization failed: %w", err)
 	}
@@ -84,7 +65,7 @@ func (uc *StoreSecretUC) Execute(ctx context.Context, req StoreSecretRequest) er
 
 	secret := &core.Secret{
 		Name:      req.Name,
-		Type:      req.Type,
+		Type:      req.Payload.GetType(),
 		Salt:      salt,
 		Nonce:     nonce,
 		CreatedAt: shared.Now(),

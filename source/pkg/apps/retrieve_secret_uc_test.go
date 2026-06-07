@@ -119,10 +119,46 @@ func TestRetrieveSecretUC_Execute_RepoError(t *testing.T) {
 	}
 }
 
+func TestRetrieveSecretUC_Execute_CreditSuccess(t *testing.T) {
+	creditPayload := &secrets.CreditSecret{
+		Number:          "4532123456789012",
+		SecurityCode:    []byte("123"),
+		ExpirationMonth: 6,
+		ExpirationYear:  2028,
+		Pin:             []byte("1234"),
+	}
+	b, _ := json.Marshal(creditPayload)
+
+	repo := &mocks.MockRepository{
+		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
+			return &core.Secret{Name: name, Type: "credit", CreatedAt: time.Now()}, b, nil
+		},
+	}
+	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
+
+	resp, err := uc.Execute(context.Background(), apps.RetrieveSecretRequest{
+		Name:           "visa-debit",
+		MasterPassword: []byte("master"),
+	})
+	if err != nil {
+		t.Fatalf("Execute() credit error = %v", err)
+	}
+	if resp.Type != "credit" {
+		t.Errorf("resp.Type = %q, want %q", resp.Type, "credit")
+	}
+	credit, ok := resp.Payload.(*secrets.CreditSecret)
+	if !ok {
+		t.Fatalf("payload type = %T, want *secrets.CreditSecret", resp.Payload)
+	}
+	if credit.Number != "4532123456789012" {
+		t.Errorf("credit.Number = %q, want %q", credit.Number, "4532123456789012")
+	}
+}
+
 func TestRetrieveSecretUC_Execute_UnknownSecretType(t *testing.T) {
 	repo := &mocks.MockRepository{
 		GetByNameFn: func(_ context.Context, name string) (*core.Secret, []byte, error) {
-			return &core.Secret{Name: name, Type: "card"}, []byte(`{}`), nil
+			return &core.Secret{Name: name, Type: "note"}, []byte(`{}`), nil
 		},
 	}
 	uc := apps.NewRetrieveSecretUC(repo, &mocks.MockEncryptor{})
