@@ -1,4 +1,4 @@
-package excepts
+package errors
 
 import "errors"
 
