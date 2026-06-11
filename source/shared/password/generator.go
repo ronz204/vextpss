@@ -19,8 +19,10 @@ func Generate(length int, useSymbols bool) (string, error) {
 	if useSymbols {
 		charset += charsetSymbols
 	}
+
 	result := make([]byte, length)
 	max := big.NewInt(int64(len(charset)))
+
 	for i := range result {
 		idx, err := rand.Int(rand.Reader, max)
 		if err != nil {
