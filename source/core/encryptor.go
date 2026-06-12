@@ -2,13 +2,28 @@ package core
 
 import "context"
 
-// Encryptor is the cryptographic contract consumed by use cases.
-// Implementations live in pkg/tokens/ — never in core or application.
-type Encryptor interface {
-	// Encrypt ciphers plaintext with masterPassword.
-	// Returns a unique salt, nonce, and ciphertext to be stored alongside the record.
-	Encrypt(ctx context.Context, plaintext, masterPassword []byte) (salt, nonce, ciphertext []byte, err error)
+type EncInDto struct {
+	Plaintext []byte
+	Password  []byte
+}
 
-	// Decrypt reverses Encrypt. Returns ErrDecryptionFailed on wrong password or tampered data.
-	Decrypt(ctx context.Context, masterPassword, salt, nonce, ciphertext []byte) ([]byte, error)
+type EncOutDto struct {
+	Salt       []byte
+	Nonce      []byte
+	Ciphertext []byte
+}
+
+type DecInDto struct {
+	Password   []byte
+	Salt       []byte
+	Nonce      []byte
+	Ciphertext []byte
+}
+
+// Encryptor is the cryptographic contract consumed by use cases.
+type Encryptor interface {
+	// Encrypt ciphers plaintext with password.
+	Encrypt(ctx context.Context, in EncInDto) (out EncOutDto, err error)
+	// Decrypt reverses encrypt with password.
+	Decrypt(ctx context.Context, in DecInDto) ([]byte, error)
 }
