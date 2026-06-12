@@ -34,7 +34,7 @@ func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, in core.EncInDto) (core.EncOu
 	}
 
 	key := e.deriveKey(in.Password, salt)
-	defer password.Zero(key)
+	defer password.Cleaner(key)
 
 	nonce, err := e.randomBytes(e.config.NonceLen)
 	if err != nil {
@@ -62,7 +62,7 @@ func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in core.DecInDto) ([]byte, er
 	}
 
 	key := e.deriveKey(in.Password, in.Salt)
-	defer password.Zero(key)
+	defer password.Cleaner(key)
 
 	gcm, err := e.newGCM(key)
 	if err != nil {
