@@ -2,18 +2,18 @@ package core
 
 import "context"
 
-type EncInDto struct {
+type EncryptInDto struct {
 	Plaintext []byte
 	Password  []byte
 }
 
-type EncOutDto struct {
+type EncryptOutDto struct {
 	Salt       []byte
 	Nonce      []byte
 	Ciphertext []byte
 }
 
-type DecInDto struct {
+type DecryptInDto struct {
 	Password   []byte
 	Salt       []byte
 	Nonce      []byte
@@ -23,7 +23,7 @@ type DecInDto struct {
 // Encryptor is the cryptographic contract consumed by use cases.
 type Encryptor interface {
 	// Encrypt ciphers plaintext with password.
-	Encrypt(ctx context.Context, in EncInDto) (out EncOutDto, err error)
+	Encrypt(ctx context.Context, dto EncryptInDto) (out EncryptOutDto, err error)
 	// Decrypt reverses encrypt with password.
-	Decrypt(ctx context.Context, in DecInDto) ([]byte, error)
+	Decrypt(ctx context.Context, dto DecryptInDto) ([]byte, error)
 }
