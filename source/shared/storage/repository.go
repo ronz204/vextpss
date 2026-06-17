@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/sentinel"
@@ -32,6 +33,9 @@ func (r *SecretRepository) Create(ctx context.Context, secret *secrets.Secret, e
 	}
 	result := r.db.WithContext(ctx).Create(record)
 	if result.Error != nil {
+		if strings.Contains(result.Error.Error(), "UNIQUE constraint failed") {
+			return sentinel.ErrAlreadyExists
+		}
 		return fmt.Errorf("insert failed: %w", result.Error)
 	}
 	return nil
