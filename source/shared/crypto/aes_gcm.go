@@ -10,8 +10,8 @@ import (
 	"io"
 
 	"vextpss/source/core"
-	"vextpss/source/errors"
-	"vextpss/source/shared/password"
+	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/sentinel"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -27,28 +27,28 @@ func NewAESGCMEncryptor(config AESGCMConfig) *AESGCMEncryptor {
 }
 
 // Encrypt derives a key from masterPassword + a fresh salt, then encrypts plaintext with AES-256-GCM.
-func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, in core.EncInDto) (core.EncOutDto, error) {
+func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, dto core.EncryptInDto) (core.EncryptOutDto, error) {
 	salt, err := e.randomBytes(e.config.SaltLen)
 	if err != nil {
-		return core.EncOutDto{}, fmt.Errorf("failed to generate salt: %w", err)
+		return core.EncryptOutDto{}, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	key := e.deriveKey(in.Password, salt)
-	defer password.Cleaner(key)
+	key := e.deriveKey(dto.Password, salt)
+	defer passgen.Cleaner(key)
 
 	nonce, err := e.randomBytes(e.config.NonceLen)
 	if err != nil {
-		return core.EncOutDto{}, fmt.Errorf("failed to generate nonce: %w", err)
+		return core.EncryptOutDto{}, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
 	gcm, err := e.newGCM(key)
 	if err != nil {
-		return core.EncOutDto{}, fmt.Errorf("failed to create cipher: %w", err)
+		return core.EncryptOutDto{}, fmt.Errorf("failed to create cipher: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nil, nonce, in.Plaintext, nil)
+	ciphertext := gcm.Seal(nil, nonce, dto.Plaintext, nil)
 
-	return core.EncOutDto{
+	return core.EncryptOutDto{
 		Salt:       salt,
 		Nonce:      nonce,
 		Ciphertext: ciphertext,
@@ -56,22 +56,22 @@ func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, in core.EncInDto) (core.EncOu
 }
 
 // Decrypt derives the same key from masterPassword + stored salt, then deciphers the payload.
-func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in core.DecInDto) ([]byte, error) {
+func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in core.DecryptInDto) ([]byte, error) {
 	if len(in.Salt) != e.config.SaltLen || len(in.Nonce) != e.config.NonceLen {
-		return nil, errors.ErrDecryptionFailed
+		return nil, sentinel.ErrDecryptionFailed
 	}
 
 	key := e.deriveKey(in.Password, in.Salt)
-	defer password.Cleaner(key)
+	defer passgen.Cleaner(key)
 
 	gcm, err := e.newGCM(key)
 	if err != nil {
-		return nil, errors.ErrDecryptionFailed
+		return nil, sentinel.ErrDecryptionFailed
 	}
 
 	plaintext, err := gcm.Open(nil, in.Nonce, in.Ciphertext, nil)
 	if err != nil {
-		return nil, errors.ErrDecryptionFailed
+		return nil, sentinel.ErrDecryptionFailed
 	}
 
 	return plaintext, nil
