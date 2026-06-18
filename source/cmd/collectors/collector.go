@@ -4,22 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"vextpss/source/core"
 	"vextpss/source/secrets"
 	"vextpss/source/shared/sentinel"
 )
 
-// Collector is the contract for gathering all inputs needed by an adapter.
-// Adapters depend only on this interface — Prompter is an implementation detail.
-type Collector interface {
-	CollectPayload(secretType string) ([]byte, error)
-	CollectMaster() ([]byte, error)
-	Confirm(prompt string) (bool, error)
-}
-
-// TerminalCollector implements Collector using a Prompter for raw terminal input.
+// TerminalCollector implements core.Collector using a Prompter for raw terminal input.
 type TerminalCollector struct {
 	p Prompter
 }
+
+// Compile-time check that TerminalCollector satisfies the core.Collector interface.
+var _ core.Collector = (*TerminalCollector)(nil)
 
 func NewTerminalCollector(p Prompter) *TerminalCollector {
 	return &TerminalCollector{p: p}
