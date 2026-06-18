@@ -1,15 +1,40 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
 
-// NewRootCmd builds the root Cobra command. Sub-commands are registered in main.go
-// so dependency injection can be performed before the command tree is assembled.
-func NewRootCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:           "vext",
+	"vextpss/source/cmd/adapters"
+	"vextpss/source/cmd/collectors"
+	"vextpss/source/shared"
+	"vextpss/source/shared/crypto"
+	"vextpss/source/shared/storage"
+)
+
+// Execute builds AppDeps, registers all commands, and runs the root cobra command.
+func Execute() error {
+	deps := shared.AppDeps{
+		DBPath:    shared.DBPath(),
+		Enc:       crypto.NewAESGCMEncryptor(crypto.DefaultConfig()),
+		Collector: collectors.NewTerminalCollector(collectors.NewTerminalPrompter()),
+	}
+
+	root := &cobra.Command{
+		Use:           shared.AppName,
 		Short:         "A local-first CLI password manager",
-		Long:          "Vext stores and retrieves credentials securely using AES-256-GCM encryption and Argon2id key derivation. All data lives on your machine — no cloud, no accounts.",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
+
+	root.AddCommand(
+		adapters.InitCmd(storage.NewInitialiser(deps.DBPath)),
+		adapters.AddCmd(deps),
+		adapters.GetCmd(deps),
+		adapters.ListCmd(deps),
+		adapters.UpdCmd(deps),
+		adapters.RmCmd(deps),
+		adapters.ExportCmd(deps),
+		adapters.ImportCmd(deps),
+	)
+
+	return root.Execute()
 }
