@@ -30,6 +30,8 @@ func Execute() error {
 		adapters.AddCmd(deps),
 		adapters.UpdCmd(deps),
 		adapters.RmCmd(deps),
+		adapters.ExportCmd(deps),
+		adapters.ImportCmd(deps),
 	)
 
 	return root.Execute()
