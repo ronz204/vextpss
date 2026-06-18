@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"os"
+
+	"vextpss/source/cmd"
+)
 
 func main() {
-	fmt.Println("Hello from VextPss")
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
