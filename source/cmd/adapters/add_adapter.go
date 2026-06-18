@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"vextpss/source/cmd/collectors"
 	"vextpss/source/cmd/formatters"
 	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/secrets"
+	"vextpss/source/shared"
 	"vextpss/source/shared/passgen"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -19,9 +19,8 @@ import (
 
 // ================================
 // AddCmd returns the cobra command for "vext add <name>".
-// enc and c are injected — DB is opened per execution since it may not exist at startup.
 // ================================
-func AddCmd(dbPath string, enc core.Encryptor, c collectors.Collector) *cobra.Command {
+func AddCmd(deps shared.AppDeps) *cobra.Command {
 	var secretType string
 
 	cmd := &cobra.Command{
@@ -29,7 +28,7 @@ func AddCmd(dbPath string, enc core.Encryptor, c collectors.Collector) *cobra.Co
 		Short: "Store a new secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(args[0], secretType, dbPath, enc, c)
+			return runAdd(args[0], secretType, deps)
 		},
 	}
 
@@ -37,37 +36,33 @@ func AddCmd(dbPath string, enc core.Encryptor, c collectors.Collector) *cobra.Co
 	return cmd
 }
 
-func runAdd(name, secretType, dbPath string, enc core.Encryptor, c collectors.Collector) error {
-	plaintext, err := c.CollectPayload(secretType)
+func runAdd(name, secretType string, deps shared.AppDeps) error {
+	plaintext, err := deps.Collector.CollectPayload(secretType)
 	defer passgen.Cleaner(plaintext)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	masterPassword, err := c.CollectMaster()
+	masterPassword, err := deps.Collector.CollectMaster()
 	defer passgen.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	db, err := storage.Open(dbPath)
-	if err != nil {
-		formatters.Error(err.Error())
-		return err
-	}
-	defer storage.Close(db)
+	err = storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+		return funcs.NewCreateSecretFunc(repo, deps.Enc).Run(context.Background(), funcs.CreateSecretDto{
+			Name:           name,
+			Type:           secretType,
+			Plaintext:      plaintext,
+			MasterPassword: masterPassword,
+		})
+	})
 
-	f := funcs.NewCreateSecretFunc(storage.NewSecretRepository(db), enc)
-	if err = f.Run(context.Background(), funcs.CreateSecretDto{
-		Name:           name,
-		Type:           secretType,
-		Plaintext:      plaintext,
-		MasterPassword: masterPassword,
-	}); err != nil {
+	if err != nil {
 		if errors.Is(err, sentinel.ErrAlreadyExists) {
-			formatters.Error(fmt.Sprintf("a credential named %q already exists. Use `vext update` to modify it.", name))
+			formatters.Error(fmt.Sprintf("a credential named %q already exists. Use `vext upd` to modify it.", name))
 		} else {
 			formatters.Error(err.Error())
 		}

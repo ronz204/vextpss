@@ -10,12 +10,13 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// Execute wires all dependencies and runs the root command.
+// Execute builds AppDeps, registers all commands, and runs the root cobra command.
 func Execute() error {
-	path := shared.DBPath()
-	enc := crypto.NewAESGCMEncryptor(crypto.DefaultConfig())
-	prompter := collectors.NewTerminalPrompter()
-	collector := collectors.NewTerminalCollector(prompter)
+	deps := shared.AppDeps{
+		DBPath:    shared.DBPath(),
+		Enc:       crypto.NewAESGCMEncryptor(crypto.DefaultConfig()),
+		Collector: collectors.NewTerminalCollector(collectors.NewTerminalPrompter()),
+	}
 
 	root := &cobra.Command{
 		Use:           shared.AppName,
@@ -25,10 +26,10 @@ func Execute() error {
 	}
 
 	root.AddCommand(
-		adapters.InitCmd(storage.NewInitialiser(path)),
-		adapters.AddCmd(path, enc, collector),
-		adapters.UpdCmd(path, enc, collector),
-		adapters.RmCmd(path, collector),
+		adapters.InitCmd(storage.NewInitialiser(deps.DBPath)),
+		adapters.AddCmd(deps),
+		adapters.UpdCmd(deps),
+		adapters.RmCmd(deps),
 	)
 
 	return root.Execute()
