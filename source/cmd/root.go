@@ -28,6 +28,8 @@ func Execute() error {
 	root.AddCommand(
 		adapters.InitCmd(storage.NewInitialiser(deps.DBPath)),
 		adapters.AddCmd(deps),
+		adapters.GetCmd(deps),
+		adapters.ListCmd(deps),
 		adapters.UpdCmd(deps),
 		adapters.RmCmd(deps),
 		adapters.ExportCmd(deps),
