@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/cmd/formatters"
-	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/secrets"
 	"vextpss/source/shared"
@@ -51,7 +50,7 @@ func runAdd(name, secretType string, deps shared.AppDeps) error {
 		return err
 	}
 
-	err = storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+	err = storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
 		return funcs.NewCreateSecretFunc(repo, deps.Enc).Run(context.Background(), funcs.CreateSecretDto{
 			Name:           name,
 			Type:           secretType,

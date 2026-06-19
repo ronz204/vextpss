@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/cmd/formatters"
-	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
 	"vextpss/source/shared/storage"
@@ -28,7 +27,7 @@ func ListCmd(deps shared.AppDeps) *cobra.Command {
 }
 
 func runList(deps shared.AppDeps) error {
-	err := storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+	err := storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
 		all, err := funcs.NewRetrieveSecretsFunc(repo).Run(context.Background())
 		if err != nil {
 			return err

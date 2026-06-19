@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/cmd/formatters"
-	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
 	"vextpss/source/shared/passgen"
@@ -39,7 +38,7 @@ func runImport(filePath string, deps shared.AppDeps) error {
 	}
 
 	var result funcs.ImportResult
-	err = storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+	err = storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
 		var runErr error
 		result, runErr = funcs.NewImportSecretsFunc(repo, deps.Enc).Run(context.Background(), funcs.ImportSecretsDto{
 			FilePath:       filePath,

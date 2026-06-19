@@ -7,6 +7,7 @@ import (
 	"vextpss/source/core"
 	"vextpss/source/shared/passgen"
 	"vextpss/source/shared/sentinel"
+	"vextpss/source/shared/storage"
 )
 
 // ObtainSecretDto carries the inputs for the get use case.
@@ -38,14 +39,14 @@ type ObtainSecretResult struct {
 
 // ObtainSecretFunc orchestrates retrieving and decrypting a single secret by name.
 type ObtainSecretFunc struct {
-	repo core.SecretRepository
+	repo *storage.SecretRepository
 	enc  core.Encryptor
 }
 
 // ================================
 // NewObtainSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewObtainSecretFunc(repo core.SecretRepository, enc core.Encryptor) *ObtainSecretFunc {
+func NewObtainSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *ObtainSecretFunc {
 	return &ObtainSecretFunc{repo: repo, enc: enc}
 }
 

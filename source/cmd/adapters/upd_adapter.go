@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/cmd/formatters"
-	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
 	"vextpss/source/shared/passgen"
@@ -32,7 +31,7 @@ func UpdCmd(deps shared.AppDeps) *cobra.Command {
 }
 
 func runUpd(name string, deps shared.AppDeps) error {
-	err := storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+	err := storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
 		// Resolve the existing type before prompting — the user should not need to remember it.
 		existing, _, err := repo.GetByName(context.Background(), name)
 		if err != nil {

@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/cmd/formatters"
-	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
 	"vextpss/source/shared/sentinel"
@@ -41,7 +40,7 @@ func runRm(name string, deps shared.AppDeps) error {
 		return nil
 	}
 
-	err = storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+	err = storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
 		return funcs.NewDeleteSecretFunc(repo).Run(context.Background(), funcs.DeleteSecretDto{Name: name})
 	})
 

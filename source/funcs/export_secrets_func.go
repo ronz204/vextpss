@@ -10,6 +10,7 @@ import (
 	"vextpss/source/core"
 	"vextpss/source/shared/passgen"
 	"vextpss/source/shared/sentinel"
+	"vextpss/source/shared/storage"
 )
 
 // exportRecord is the serialized form of one credential inside the bundle.
@@ -58,14 +59,14 @@ func (d ExportSecretsDto) validate() error {
 
 // ExportSecretsFunc orchestrates reading all secrets and writing an encrypted export file.
 type ExportSecretsFunc struct {
-	repo core.SecretRepository
+	repo *storage.SecretRepository
 	enc  core.Encryptor
 }
 
 // ================================
 // NewExportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewExportSecretsFunc(repo core.SecretRepository, enc core.Encryptor) *ExportSecretsFunc {
+func NewExportSecretsFunc(repo *storage.SecretRepository, enc core.Encryptor) *ExportSecretsFunc {
 	return &ExportSecretsFunc{repo: repo, enc: enc}
 }
 

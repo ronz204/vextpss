@@ -8,6 +8,7 @@ import (
 	"vextpss/source/secrets"
 	"vextpss/source/shared/passgen"
 	"vextpss/source/shared/sentinel"
+	"vextpss/source/shared/storage"
 )
 
 // UpdateSecretDto carries the inputs for the update use case.
@@ -39,14 +40,14 @@ func (d UpdateSecretDto) validate() error {
 
 // UpdateSecretFunc orchestrates re-encrypting and persisting a replacement payload.
 type UpdateSecretFunc struct {
-	repo core.SecretRepository
+	repo *storage.SecretRepository
 	enc  core.Encryptor
 }
 
 // ================================
 // NewUpdateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewUpdateSecretFunc(repo core.SecretRepository, enc core.Encryptor) *UpdateSecretFunc {
+func NewUpdateSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *UpdateSecretFunc {
 	return &UpdateSecretFunc{repo: repo, enc: enc}
 }
 

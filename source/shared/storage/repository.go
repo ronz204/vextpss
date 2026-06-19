@@ -20,9 +20,9 @@ func NewSecretRepository(db *gorm.DB) *SecretRepository {
 	return &SecretRepository{db: db}
 }
 
-// ================================
+// ======================================
 // Create persists a new secret with its pre-encrypted payload.
-// ================================
+// ======================================
 func (r *SecretRepository) Create(ctx context.Context, secret *secrets.Secret, encrypted []byte) error {
 	record := &SecretRecord{
 		Name:      secret.Name,
@@ -41,10 +41,10 @@ func (r *SecretRepository) Create(ctx context.Context, secret *secrets.Secret, e
 	return nil
 }
 
-// ================================
+// ======================================
 // ListAll returns metadata for all secrets ordered by name.
 // Blob columns (salt, nonce, encrypted) are excluded from the projection.
-// ================================
+// ======================================
 func (r *SecretRepository) ListAll(ctx context.Context) ([]secrets.Secret, error) {
 	var records []SecretRecord
 	result := r.db.WithContext(ctx).
@@ -68,9 +68,9 @@ func (r *SecretRepository) ListAll(ctx context.Context) ([]secrets.Secret, error
 	return out, nil
 }
 
-// ================================
+// ======================================
 // GetAll returns all secrets together with their encrypted payloads.
-// ================================
+// ======================================
 func (r *SecretRepository) GetAll(ctx context.Context) ([]secrets.Credential, error) {
 	var records []SecretRecord
 	result := r.db.WithContext(ctx).Order("name asc").Find(&records)
@@ -96,10 +96,10 @@ func (r *SecretRepository) GetAll(ctx context.Context) ([]secrets.Credential, er
 	return out, nil
 }
 
-// ================================
+// ======================================
 // GetByName retrieves a secret and its encrypted payload by name.
 // Returns sentinel.ErrSecretNotFound when no row matches.
-// ================================
+// ======================================
 func (r *SecretRepository) GetByName(ctx context.Context, name string) (*secrets.Secret, []byte, error) {
 	var record SecretRecord
 	result := r.db.WithContext(ctx).Where("name = ?", name).First(&record)
@@ -122,10 +122,10 @@ func (r *SecretRepository) GetByName(ctx context.Context, name string) (*secrets
 	return secret, record.Encrypted, nil
 }
 
-// ================================
+// ======================================
 // Update replaces the crypto material and encrypted payload for an existing secret.
 // Returns sentinel.ErrSecretNotFound when no row matches.
-// ================================
+// ======================================
 func (r *SecretRepository) Update(ctx context.Context, secret *secrets.Secret, encrypted []byte) error {
 	result := r.db.WithContext(ctx).
 		Model(&SecretRecord{}).
@@ -144,10 +144,10 @@ func (r *SecretRepository) Update(ctx context.Context, secret *secrets.Secret, e
 	return nil
 }
 
-// ================================
+// ======================================
 // Delete removes a secret by name.
 // Returns sentinel.ErrSecretNotFound when no row matches.
-// ================================
+// ======================================
 func (r *SecretRepository) Delete(ctx context.Context, name string) error {
 	result := r.db.WithContext(ctx).Where("name = ?", name).Delete(&SecretRecord{})
 	if result.Error != nil {

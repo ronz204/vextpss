@@ -19,10 +19,10 @@ func NewInitialiser(dbPath string) *Initialiser {
 
 func (i *Initialiser) DBPath() string { return i.dbPath }
 
-// ================================
+// ======================================
 // Setup creates the config directory, opens the database, and applies migrations.
 // Returns the live connection so the caller can reuse it without a second Open.
-// ================================
+// ======================================
 func (i *Initialiser) Setup(ctx context.Context) (*gorm.DB, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

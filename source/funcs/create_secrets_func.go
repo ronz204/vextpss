@@ -8,6 +8,7 @@ import (
 	"vextpss/source/secrets"
 	"vextpss/source/shared/passgen"
 	"vextpss/source/shared/sentinel"
+	"vextpss/source/shared/storage"
 )
 
 // CreateSecretDto carries the inputs for the create use case.
@@ -39,14 +40,14 @@ func (d CreateSecretDto) validate() error {
 
 // CreateSecretFunc orchestrates encrypting and persisting a new secret.
 type CreateSecretFunc struct {
-	repo core.SecretRepository
+	repo *storage.SecretRepository
 	enc  core.Encryptor
 }
 
 // ================================
 // NewCreateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewCreateSecretFunc(repo core.SecretRepository, enc core.Encryptor) *CreateSecretFunc {
+func NewCreateSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *CreateSecretFunc {
 	return &CreateSecretFunc{repo: repo, enc: enc}
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/cmd/formatters"
-	"vextpss/source/core"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
 	"vextpss/source/shared/passgen"
@@ -46,7 +45,7 @@ func runExport(outPath string, deps shared.AppDeps) error {
 		return err
 	}
 
-	err = storage.WithRepo(deps.DBPath, func(repo core.SecretRepository) error {
+	err = storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
 		return funcs.NewExportSecretsFunc(repo, deps.Enc).Run(context.Background(), funcs.ExportSecretsDto{
 			FilePath:       outPath,
 			MasterPassword: masterPassword,

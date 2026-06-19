@@ -11,6 +11,7 @@ import (
 	"vextpss/source/secrets"
 	"vextpss/source/shared/passgen"
 	"vextpss/source/shared/sentinel"
+	"vextpss/source/shared/storage"
 )
 
 // ImportResult reports how many records were processed.
@@ -40,14 +41,14 @@ func (d ImportSecretsDto) validate() error {
 
 // ImportSecretsFunc orchestrates reading an encrypted export file and inserting its records.
 type ImportSecretsFunc struct {
-	repo core.SecretRepository
+	repo *storage.SecretRepository
 	enc  core.Encryptor
 }
 
 // ================================
 // NewImportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewImportSecretsFunc(repo core.SecretRepository, enc core.Encryptor) *ImportSecretsFunc {
+func NewImportSecretsFunc(repo *storage.SecretRepository, enc core.Encryptor) *ImportSecretsFunc {
 	return &ImportSecretsFunc{repo: repo, enc: enc}
 }
 

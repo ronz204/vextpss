@@ -2,8 +2,10 @@ package storage
 
 import "time"
 
+// ======================================
 // SecretRecord is a 1:1 mapping of the `secrets` table.
 // Encrypted is always opaque bytes — no plaintext ever persists here.
+// ======================================
 type SecretRecord struct {
 	ID        int64     `gorm:"primaryKey;autoIncrement"`
 	Name      string    `gorm:"uniqueIndex;not null"`
@@ -15,5 +17,4 @@ type SecretRecord struct {
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
-// TableName overrides the default GORM inference ("secret_records").
 func (SecretRecord) TableName() string { return "secrets" }
