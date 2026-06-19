@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"vextpss/source/core"
+	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -60,13 +60,13 @@ func (d ExportSecretsDto) validate() error {
 // ExportSecretsFunc orchestrates reading all secrets and writing an encrypted export file.
 type ExportSecretsFunc struct {
 	repo *storage.SecretRepository
-	enc  core.Encryptor
+	enc  *cryptors.AESGCMEncryptor
 }
 
 // ================================
 // NewExportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewExportSecretsFunc(repo *storage.SecretRepository, enc core.Encryptor) *ExportSecretsFunc {
+func NewExportSecretsFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *ExportSecretsFunc {
 	return &ExportSecretsFunc{repo: repo, enc: enc}
 }
 
@@ -107,7 +107,7 @@ func (f *ExportSecretsFunc) Run(ctx context.Context, dto ExportSecretsDto) error
 	}
 	defer memory.Cleaner(bundle)
 
-	out, err := f.enc.Encrypt(ctx, core.EncryptInDto{
+	out, err := f.enc.Encrypt(ctx, cryptors.EncryptInDto{
 		Plaintext: bundle,
 		Password:  dto.MasterPassword,
 	})

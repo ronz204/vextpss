@@ -1,4 +1,4 @@
-package crypto
+package cryptors
 
 import (
 	ctx "context"
@@ -9,14 +9,31 @@ import (
 	"fmt"
 	"io"
 
-	"vextpss/source/core"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 
 	"golang.org/x/crypto/argon2"
 )
 
-// AESGCMEncryptor implements core.Encryptor using AES-GCM and Argon2id.
+type EncryptInDto struct {
+	Plaintext []byte
+	Password  []byte
+}
+
+type EncryptOutDto struct {
+	Salt       []byte
+	Nonce      []byte
+	Ciphertext []byte
+}
+
+type DecryptInDto struct {
+	Password   []byte
+	Salt       []byte
+	Nonce      []byte
+	Ciphertext []byte
+}
+
+// AESGCMEncryptor encrypts and decrypts secrets using AES-256-GCM with Argon2id key derivation.
 type AESGCMEncryptor struct {
 	config AESGCMConfig
 }
@@ -26,11 +43,13 @@ func NewAESGCMEncryptor(config AESGCMConfig) *AESGCMEncryptor {
 	return &AESGCMEncryptor{config: config}
 }
 
+// ======================================
 // Encrypt derives a key from masterPassword + a fresh salt, then encrypts plaintext with AES-256-GCM.
-func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, dto core.EncryptInDto) (core.EncryptOutDto, error) {
+// ======================================
+func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, dto EncryptInDto) (EncryptOutDto, error) {
 	salt, err := e.randomBytes(e.config.SaltLen)
 	if err != nil {
-		return core.EncryptOutDto{}, fmt.Errorf("failed to generate salt: %w", err)
+		return EncryptOutDto{}, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
 	key := e.deriveKey(dto.Password, salt)
@@ -38,25 +57,27 @@ func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, dto core.EncryptInDto) (core.
 
 	nonce, err := e.randomBytes(e.config.NonceLen)
 	if err != nil {
-		return core.EncryptOutDto{}, fmt.Errorf("failed to generate nonce: %w", err)
+		return EncryptOutDto{}, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
 	gcm, err := e.newGCM(key)
 	if err != nil {
-		return core.EncryptOutDto{}, fmt.Errorf("failed to create cipher: %w", err)
+		return EncryptOutDto{}, fmt.Errorf("failed to create cipher: %w", err)
 	}
 
 	ciphertext := gcm.Seal(nil, nonce, dto.Plaintext, nil)
 
-	return core.EncryptOutDto{
+	return EncryptOutDto{
 		Salt:       salt,
 		Nonce:      nonce,
 		Ciphertext: ciphertext,
 	}, nil
 }
 
+// ======================================
 // Decrypt derives the same key from masterPassword + stored salt, then deciphers the payload.
-func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in core.DecryptInDto) ([]byte, error) {
+// ======================================
+func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in DecryptInDto) ([]byte, error) {
 	if len(in.Salt) != e.config.SaltLen || len(in.Nonce) != e.config.NonceLen {
 		return nil, sentinel.ErrDecryptionFailed
 	}

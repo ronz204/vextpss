@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"vextpss/source/core"
 	"vextpss/source/secrets"
+	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -41,13 +41,13 @@ func (d UpdateSecretDto) validate() error {
 // UpdateSecretFunc orchestrates re-encrypting and persisting a replacement payload.
 type UpdateSecretFunc struct {
 	repo *storage.SecretRepository
-	enc  core.Encryptor
+	enc  *cryptors.AESGCMEncryptor
 }
 
 // ================================
 // NewUpdateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewUpdateSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *UpdateSecretFunc {
+func NewUpdateSecretFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *UpdateSecretFunc {
 	return &UpdateSecretFunc{repo: repo, enc: enc}
 }
 
@@ -63,7 +63,7 @@ func (f *UpdateSecretFunc) Run(ctx context.Context, dto UpdateSecretDto) error {
 		return err
 	}
 
-	out, err := f.enc.Encrypt(ctx, core.EncryptInDto{
+	out, err := f.enc.Encrypt(ctx, cryptors.EncryptInDto{
 		Plaintext: dto.Plaintext,
 		Password:  dto.MasterPassword,
 	})

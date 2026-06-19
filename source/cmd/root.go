@@ -6,7 +6,7 @@ import (
 	"vextpss/source/cmd/adapters"
 	"vextpss/source/cmd/collectors"
 	"vextpss/source/shared"
-	"vextpss/source/shared/crypto"
+	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/storage"
 )
 
@@ -14,7 +14,7 @@ import (
 func Execute() error {
 	deps := shared.AppDeps{
 		DBPath:    shared.DBPath(),
-		Enc:       crypto.NewAESGCMEncryptor(crypto.DefaultConfig()),
+		Enc:       cryptors.NewAESGCMEncryptor(cryptors.DefaultConfig()),
 		Collector: collectors.NewCollector(collectors.NewPrompter()),
 	}
 

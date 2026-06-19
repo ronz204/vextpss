@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"vextpss/source/core"
 	"vextpss/source/secrets"
+	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -42,13 +42,13 @@ func (d ImportSecretsDto) validate() error {
 // ImportSecretsFunc orchestrates reading an encrypted export file and inserting its records.
 type ImportSecretsFunc struct {
 	repo *storage.SecretRepository
-	enc  core.Encryptor
+	enc  *cryptors.AESGCMEncryptor
 }
 
 // ================================
 // NewImportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewImportSecretsFunc(repo *storage.SecretRepository, enc core.Encryptor) *ImportSecretsFunc {
+func NewImportSecretsFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *ImportSecretsFunc {
 	return &ImportSecretsFunc{repo: repo, enc: enc}
 }
 
@@ -74,7 +74,7 @@ func (f *ImportSecretsFunc) Run(ctx context.Context, dto ImportSecretsDto) (Impo
 		return ImportResult{}, fmt.Errorf("parse export file: %w", err)
 	}
 
-	plaintext, err := f.enc.Decrypt(ctx, core.DecryptInDto{
+	plaintext, err := f.enc.Decrypt(ctx, cryptors.DecryptInDto{
 		Password:   dto.MasterPassword,
 		Salt:       ef.Salt,
 		Nonce:      ef.Nonce,

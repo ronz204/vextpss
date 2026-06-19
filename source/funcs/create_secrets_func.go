@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"vextpss/source/core"
 	"vextpss/source/secrets"
+	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -41,13 +41,13 @@ func (d CreateSecretDto) validate() error {
 // CreateSecretFunc orchestrates encrypting and persisting a new secret.
 type CreateSecretFunc struct {
 	repo *storage.SecretRepository
-	enc  core.Encryptor
+	enc  *cryptors.AESGCMEncryptor
 }
 
 // ================================
 // NewCreateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewCreateSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *CreateSecretFunc {
+func NewCreateSecretFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *CreateSecretFunc {
 	return &CreateSecretFunc{repo: repo, enc: enc}
 }
 
@@ -63,7 +63,7 @@ func (f *CreateSecretFunc) Run(ctx context.Context, dto CreateSecretDto) error {
 		return err
 	}
 
-	out, err := f.enc.Encrypt(ctx, core.EncryptInDto{
+	out, err := f.enc.Encrypt(ctx, cryptors.EncryptInDto{
 		Plaintext: dto.Plaintext,
 		Password:  dto.MasterPassword,
 	})

@@ -1,4 +1,4 @@
-package crypto
+package cryptors
 
 // Argon2Config holds parameters for key derivation.
 type Argon2Config struct {
@@ -8,7 +8,7 @@ type Argon2Config struct {
 	KeyLen  uint32
 }
 
-// CryptoConfig bundles all cryptographic parameters.
+// AESGCMConfig bundles all cryptographic parameters.
 type AESGCMConfig struct {
 	Argon    Argon2Config
 	SaltLen  int

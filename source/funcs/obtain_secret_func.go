@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"vextpss/source/core"
+	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -40,13 +40,13 @@ type ObtainSecretResult struct {
 // ObtainSecretFunc orchestrates retrieving and decrypting a single secret by name.
 type ObtainSecretFunc struct {
 	repo *storage.SecretRepository
-	enc  core.Encryptor
+	enc  *cryptors.AESGCMEncryptor
 }
 
 // ================================
 // NewObtainSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewObtainSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *ObtainSecretFunc {
+func NewObtainSecretFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *ObtainSecretFunc {
 	return &ObtainSecretFunc{repo: repo, enc: enc}
 }
 
@@ -66,7 +66,7 @@ func (f *ObtainSecretFunc) Run(ctx context.Context, dto ObtainSecretDto) (Obtain
 		return ObtainSecretResult{}, err
 	}
 
-	plaintext, err := f.enc.Decrypt(ctx, core.DecryptInDto{
+	plaintext, err := f.enc.Decrypt(ctx, cryptors.DecryptInDto{
 		Password:   dto.MasterPassword,
 		Salt:       secret.Salt,
 		Nonce:      secret.Nonce,
