@@ -28,6 +28,7 @@ func Execute() error {
 		adapters.RmCmd(dbPath, deps.Collector),
 		adapters.ExportCmd(dbPath, deps.Encryptor, deps.Collector),
 		adapters.ImportCmd(dbPath, deps.Encryptor, deps.Collector),
+		adapters.GenCmd(),
 	)
 
 	return root.Execute()
