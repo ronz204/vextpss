@@ -12,7 +12,7 @@ import (
 // collectAccount prompts for username and password, then marshals them into a JSON payload.
 // rawPassword is zeroed immediately after marshaling.
 // ================================
-func collectAccount(p Prompter) ([]byte, error) {
+func collectAccount(p *Prompter) ([]byte, error) {
 	username, err := p.ReadLine("Username")
 	if err != nil {
 		return nil, err

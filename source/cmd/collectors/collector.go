@@ -4,28 +4,23 @@ import (
 	"fmt"
 	"strings"
 
-	"vextpss/source/core"
 	"vextpss/source/secrets"
 	"vextpss/source/shared/sentinel"
 )
 
-// TerminalCollector implements core.Collector using a Prompter for raw terminal input.
-type TerminalCollector struct {
-	p Prompter
+type Collector struct {
+	p *Prompter
 }
 
-// Compile-time check that TerminalCollector satisfies the core.Collector interface.
-var _ core.Collector = (*TerminalCollector)(nil)
-
-func NewTerminalCollector(p Prompter) *TerminalCollector {
-	return &TerminalCollector{p: p}
+func NewCollector(p *Prompter) *Collector {
+	return &Collector{p: p}
 }
 
 // ================================
-// CollectPayload dispatches to the right collector based on secret type.
+// Payload dispatches to the right collector based on secret type.
 // Add a new case here when a new type is introduced.
 // ================================
-func (c *TerminalCollector) CollectPayload(secretType string) ([]byte, error) {
+func (c *Collector) Payload(secretType string) ([]byte, error) {
 	switch secretType {
 	case secrets.TypeAccount:
 		return collectAccount(c.p)
@@ -37,16 +32,16 @@ func (c *TerminalCollector) CollectPayload(secretType string) ([]byte, error) {
 }
 
 // ================================
-// CollectMaster prompts for the master password without echoing it.
+// Master prompts for the master password without echoing it.
 // ================================
-func (c *TerminalCollector) CollectMaster() ([]byte, error) {
+func (c *Collector) Master() ([]byte, error) {
 	return c.p.ReadSecret("Master password")
 }
 
 // ================================
 // Confirm asks the user a yes/no question and returns true only for "y".
 // ================================
-func (c *TerminalCollector) Confirm(prompt string) (bool, error) {
+func (c *Collector) Confirm(prompt string) (bool, error) {
 	answer, err := c.p.ReadLine(fmt.Sprintf("%s (y/N)", prompt))
 	if err != nil {
 		return false, err

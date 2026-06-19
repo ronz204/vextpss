@@ -31,7 +31,7 @@ func ImportCmd(deps shared.AppDeps) *cobra.Command {
 }
 
 func runImport(filePath string, deps shared.AppDeps) error {
-	masterPassword, err := deps.Collector.CollectMaster()
+	masterPassword, err := deps.Collector.Master()
 	defer passgen.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())

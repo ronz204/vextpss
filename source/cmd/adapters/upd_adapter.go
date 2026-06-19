@@ -39,13 +39,13 @@ func runUpd(name string, deps shared.AppDeps) error {
 			return err
 		}
 
-		plaintext, err := deps.Collector.CollectPayload(existing.Type)
+		plaintext, err := deps.Collector.Payload(existing.Type)
 		defer passgen.Cleaner(plaintext)
 		if err != nil {
 			return err
 		}
 
-		masterPassword, err := deps.Collector.CollectMaster()
+		masterPassword, err := deps.Collector.Master()
 		defer passgen.Cleaner(masterPassword)
 		if err != nil {
 			return err

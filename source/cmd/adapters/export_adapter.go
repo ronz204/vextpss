@@ -39,7 +39,7 @@ func runExport(outPath string, deps shared.AppDeps) error {
 		outPath = fmt.Sprintf("vext-export-%s.vxt", time.Now().Format("20060102-150405"))
 	}
 
-	masterPassword, err := deps.Collector.CollectMaster()
+	masterPassword, err := deps.Collector.Master()
 	defer passgen.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())

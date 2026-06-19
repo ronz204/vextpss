@@ -37,14 +37,14 @@ func AddCmd(deps shared.AppDeps) *cobra.Command {
 }
 
 func runAdd(name, secretType string, deps shared.AppDeps) error {
-	plaintext, err := deps.Collector.CollectPayload(secretType)
+	plaintext, err := deps.Collector.Payload(secretType)
 	defer passgen.Cleaner(plaintext)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	masterPassword, err := deps.Collector.CollectMaster()
+	masterPassword, err := deps.Collector.Master()
 	defer passgen.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())

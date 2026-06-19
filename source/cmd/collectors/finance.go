@@ -15,7 +15,7 @@ import (
 // Sensitive byte slices are zeroed immediately after marshaling.
 // Bank fields are optional — the user may leave them blank.
 // ================================
-func collectFinance(p Prompter) ([]byte, error) {
+func collectFinance(p *Prompter) ([]byte, error) {
 	cardNumber, err := p.ReadLine("Card number")
 	if err != nil {
 		return nil, err

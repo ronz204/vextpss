@@ -37,7 +37,7 @@ func runList(deps shared.AppDeps) error {
 			formatters.Info("No secrets stored yet. Use 'vext add' to get started.")
 			return nil
 		}
-		formatters.PrintSecretList(all)
+		formatters.PrintTabTable(all)
 		return nil
 	})
 	if err != nil {
