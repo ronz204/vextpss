@@ -41,7 +41,7 @@ func runExport(outPath string, d Deps) error {
 		return err
 	}
 
-	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		return funcs.NewExportSecretsFunc(repo, d.Encryptor).Run(context.Background(), funcs.ExportSecretsDto{
 			FilePath:       outPath,
 			MasterPassword: masterPassword,

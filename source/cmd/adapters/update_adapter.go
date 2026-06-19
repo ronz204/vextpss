@@ -27,7 +27,7 @@ func UpdCmd(d Deps) *cobra.Command {
 
 func runUpd(name string, d Deps) error {
 	var secretType string
-	if err := storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	if err := storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		existing, _, err := repo.GetByName(context.Background(), name)
 		if err != nil {
 			return err
@@ -57,7 +57,7 @@ func runUpd(name string, d Deps) error {
 		return err
 	}
 
-	if err := storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	if err := storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		return funcs.NewUpdateSecretFunc(repo, d.Encryptor).Run(context.Background(), funcs.UpdateSecretDto{
 			Name:           name,
 			Type:           secretType,

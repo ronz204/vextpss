@@ -34,7 +34,7 @@ func runImport(filePath string, d Deps) error {
 	}
 
 	var result funcs.ImportResult
-	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		var runErr error
 		result, runErr = funcs.NewImportSecretsFunc(repo, d.Encryptor).Run(context.Background(), funcs.ImportSecretsDto{
 			FilePath:       filePath,

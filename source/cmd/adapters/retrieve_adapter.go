@@ -22,7 +22,7 @@ func ListCmd(d Deps) *cobra.Command {
 }
 
 func runList(d Deps) error {
-	err := storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	err := storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		all, err := funcs.NewRetrieveSecretsFunc(repo).Run(context.Background())
 		if err != nil {
 			return err

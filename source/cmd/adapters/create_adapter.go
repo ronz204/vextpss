@@ -46,7 +46,7 @@ func runAdd(name, secretType string, d Deps) error {
 		return err
 	}
 
-	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		return funcs.NewCreateSecretFunc(repo, d.Encryptor).Run(context.Background(), funcs.CreateSecretDto{
 			Name:           name,
 			Type:           secretType,

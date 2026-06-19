@@ -36,7 +36,7 @@ func runGet(name string, d Deps) error {
 	}
 
 	var result funcs.ObtainSecretResult
-	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		var runErr error
 		result, runErr = funcs.NewObtainSecretFunc(repo, d.Encryptor).Run(context.Background(), funcs.ObtainSecretDto{
 			Name:           name,

@@ -35,7 +35,7 @@ func runRm(name string, d Deps) error {
 		return nil
 	}
 
-	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo funcs.Repository) error {
 		return funcs.NewDeleteSecretFunc(repo).Run(context.Background(), funcs.DeleteSecretDto{Name: name})
 	})
 
