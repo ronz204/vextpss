@@ -14,24 +14,20 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// ================================
-// UpdCmd returns the cobra command for "vext upd <name>".
-// The secret type is resolved from the existing record — no --type flag required.
-// ================================
-func UpdCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Command {
+func UpdCmd(d Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <name>",
 		Short: "Update an existing secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpd(args[0], dbPath, enc, input)
+			return runUpd(args[0], d)
 		},
 	}
 }
 
-func runUpd(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
+func runUpd(name string, d Deps) error {
 	var secretType string
-	if err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+	if err := storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
 		existing, _, err := repo.GetByName(context.Background(), name)
 		if err != nil {
 			return err
@@ -47,22 +43,22 @@ func runUpd(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) err
 		return err
 	}
 
-	plaintext, err := input.Payload(secretType)
+	plaintext, err := d.Collector.Payload(secretType)
 	defer memory.Cleaner(plaintext)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	masterPassword, err := input.Master()
+	masterPassword, err := d.Collector.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	if err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
-		return funcs.NewUpdateSecretFunc(repo, enc).Run(context.Background(), funcs.UpdateSecretDto{
+	if err := storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+		return funcs.NewUpdateSecretFunc(repo, d.Encryptor).Run(context.Background(), funcs.UpdateSecretDto{
 			Name:           name,
 			Type:           secretType,
 			Plaintext:      plaintext,

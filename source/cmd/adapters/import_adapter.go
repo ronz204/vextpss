@@ -14,22 +14,19 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// ================================
-// ImportCmd returns the cobra command for "vext import <file>".
-// ================================
-func ImportCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Command {
+func ImportCmd(d Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "import <file>",
 		Short: "Import secrets from an encrypted export file",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runImport(args[0], dbPath, enc, input)
+			return runImport(args[0], d)
 		},
 	}
 }
 
-func runImport(filePath, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
-	masterPassword, err := input.Master()
+func runImport(filePath string, d Deps) error {
+	masterPassword, err := d.Collector.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
@@ -37,9 +34,9 @@ func runImport(filePath, dbPath string, enc funcs.Encryptor, input funcs.Collect
 	}
 
 	var result funcs.ImportResult
-	err = storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
 		var runErr error
-		result, runErr = funcs.NewImportSecretsFunc(repo, enc).Run(context.Background(), funcs.ImportSecretsDto{
+		result, runErr = funcs.NewImportSecretsFunc(repo, d.Encryptor).Run(context.Background(), funcs.ImportSecretsDto{
 			FilePath:       filePath,
 			MasterPassword: masterPassword,
 		})

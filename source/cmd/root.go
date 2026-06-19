@@ -7,10 +7,8 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// Execute builds AppDeps, registers all commands, and runs the root cobra command.
 func Execute() error {
-	deps := Build()
-	dbPath := storage.DBPath()
+	deps := adapters.BuildDeps()
 
 	root := &cobra.Command{
 		Use:           "vext",
@@ -20,14 +18,14 @@ func Execute() error {
 	}
 
 	root.AddCommand(
-		adapters.InitCmd(storage.NewInitialiser(dbPath)),
-		adapters.AddCmd(dbPath, deps.Encryptor, deps.Collector),
-		adapters.GetCmd(dbPath, deps.Encryptor, deps.Collector),
-		adapters.ListCmd(dbPath),
-		adapters.UpdCmd(dbPath, deps.Encryptor, deps.Collector),
-		adapters.RmCmd(dbPath, deps.Collector),
-		adapters.ExportCmd(dbPath, deps.Encryptor, deps.Collector),
-		adapters.ImportCmd(dbPath, deps.Encryptor, deps.Collector),
+		adapters.InitCmd(storage.NewInitialiser(deps.DBPath)),
+		adapters.AddCmd(deps),
+		adapters.GetCmd(deps),
+		adapters.ListCmd(deps),
+		adapters.UpdCmd(deps),
+		adapters.RmCmd(deps),
+		adapters.ExportCmd(deps),
+		adapters.ImportCmd(deps),
 		adapters.GenCmd(),
 	)
 

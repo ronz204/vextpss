@@ -16,22 +16,19 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// ================================
-// GetCmd returns the cobra command for "vext get <name>".
-// ================================
-func GetCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Command {
+func GetCmd(d Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <name>",
 		Short: "Retrieve and decrypt a stored secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(args[0], dbPath, enc, input)
+			return runGet(args[0], d)
 		},
 	}
 }
 
-func runGet(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
-	masterPassword, err := input.Master()
+func runGet(name string, d Deps) error {
+	masterPassword, err := d.Collector.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
@@ -39,9 +36,9 @@ func runGet(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) err
 	}
 
 	var result funcs.ObtainSecretResult
-	err = storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
 		var runErr error
-		result, runErr = funcs.NewObtainSecretFunc(repo, enc).Run(context.Background(), funcs.ObtainSecretDto{
+		result, runErr = funcs.NewObtainSecretFunc(repo, d.Encryptor).Run(context.Background(), funcs.ObtainSecretDto{
 			Name:           name,
 			MasterPassword: masterPassword,
 		})
@@ -62,7 +59,6 @@ func runGet(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) err
 	return printSecret(result)
 }
 
-// printSecret dispatches to the correct formatter based on the secret type.
 func printSecret(result funcs.ObtainSecretResult) error {
 	switch result.Type {
 	case secrets.TypeAccount:

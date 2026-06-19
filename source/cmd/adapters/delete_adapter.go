@@ -13,23 +13,19 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// ================================
-// RmCmd returns the cobra command for "vext rm <name>".
-// No encryptor needed — delete does not touch secret payloads.
-// ================================
-func RmCmd(dbPath string, input funcs.Collector) *cobra.Command {
+func RmCmd(d Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm <name>",
 		Short: "Permanently delete a stored secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRm(args[0], dbPath, input)
+			return runRm(args[0], d)
 		},
 	}
 }
 
-func runRm(name, dbPath string, input funcs.Collector) error {
-	ok, err := input.Confirm(fmt.Sprintf("Delete %q? This cannot be undone", name))
+func runRm(name string, d Deps) error {
+	ok, err := d.Collector.Confirm(fmt.Sprintf("Delete %q? This cannot be undone", name))
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
@@ -39,7 +35,7 @@ func runRm(name, dbPath string, input funcs.Collector) error {
 		return nil
 	}
 
-	err = storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
 		return funcs.NewDeleteSecretFunc(repo).Run(context.Background(), funcs.DeleteSecretDto{Name: name})
 	})
 

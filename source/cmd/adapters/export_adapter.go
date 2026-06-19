@@ -13,10 +13,7 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// ================================
-// ExportCmd returns the cobra command for "vext export".
-// ================================
-func ExportCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Command {
+func ExportCmd(d Deps) *cobra.Command {
 	var outPath string
 
 	cmd := &cobra.Command{
@@ -24,7 +21,7 @@ func ExportCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra
 		Short: "Export all secrets to an encrypted file",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runExport(outPath, dbPath, enc, input)
+			return runExport(outPath, d)
 		},
 	}
 
@@ -32,20 +29,20 @@ func ExportCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra
 	return cmd
 }
 
-func runExport(outPath, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
+func runExport(outPath string, d Deps) error {
 	if outPath == "" {
 		outPath = fmt.Sprintf("vext-export-%s.vxt", time.Now().Format("20060102-150405"))
 	}
 
-	masterPassword, err := input.Master()
+	masterPassword, err := d.Collector.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	err = storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
-		return funcs.NewExportSecretsFunc(repo, enc).Run(context.Background(), funcs.ExportSecretsDto{
+	err = storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
+		return funcs.NewExportSecretsFunc(repo, d.Encryptor).Run(context.Background(), funcs.ExportSecretsDto{
 			FilePath:       outPath,
 			MasterPassword: masterPassword,
 		})

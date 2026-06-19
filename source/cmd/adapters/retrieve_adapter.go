@@ -10,23 +10,19 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-// ================================
-// ListCmd returns the cobra command for "vext list".
-// No master password required — payloads are never touched.
-// ================================
-func ListCmd(dbPath string) *cobra.Command {
+func ListCmd(d Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all stored secrets",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(dbPath)
+			return runList(d)
 		},
 	}
 }
 
-func runList(dbPath string) error {
-	err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+func runList(d Deps) error {
+	err := storage.WithRepo(d.DBPath, func(repo *storage.SecretRepository) error {
 		all, err := funcs.NewRetrieveSecretsFunc(repo).Run(context.Background())
 		if err != nil {
 			return err
