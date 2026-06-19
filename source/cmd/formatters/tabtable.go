@@ -8,8 +8,8 @@ import (
 	"vextpss/source/secrets"
 )
 
-// PrintSecretList prints a formatted table of secret names, types, and creation dates.
-func PrintSecretList(ss []secrets.Secret) {
+// PrintTabTable prints a formatted table of secret names, types, and creation dates.
+func PrintTabTable(ss []secrets.Secret) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tTYPE\tCREATED")
 	for _, s := range ss {
