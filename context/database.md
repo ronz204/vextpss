@@ -12,11 +12,11 @@ The driver used is `github.com/glebarez/sqlite`, a Pure Go SQLite implementation
 
 ## Schema Design Decision: Polymorphic vs. Separate Tables
 
-Vext needs to store different types of secrets — accounts have `username` + `password`, bank cards have `card_number` + `cvv` + `expiration`, and so on. These types have incompatible fields.
+Vext needs to store different types of secrets — accounts have `username` + `password`, finance cards have `card_number` + `cvv` + `expiration`, and so on.
 
 Two approaches were considered:
 
-**Option A — Separate Tables:** One table per secret type (`credentials`, `bank_cards`, etc.). Clean per-type, but requires a schema migration every time a new type is added, and makes cross-type queries (like `vext list`) complex.
+**Option A — Separate Tables:** One table per secret type (`accounts`, `finance_cards`, etc.). Clean per-type, but requires a schema migration every time a new type is added, and makes cross-type queries (like `vext list`) complex.
 
 **Option B — Polymorphic Table with JSON Payload:** A single `secrets` table where each row stores a `type` field and an opaque encrypted blob. The blob contains a JSON object whose shape depends on the type.
 
@@ -26,10 +26,9 @@ Two approaches were considered:
 
 ## Schema
 
-The schema is defined as a GORM model struct in `dal/schemas.go` and created via `db.AutoMigrate(&SecretRecord{})`:
+The schema is defined as a GORM model struct in `shared/storage/schemas.go` and created via `db.AutoMigrate(&SecretRecord{})`:
 
 ```go
-// SecretRecord is a 1:1 mapping of the `secrets` table.
 type SecretRecord struct {
     ID        int64     `gorm:"primaryKey;autoIncrement"`
     Name      string    `gorm:"uniqueIndex;not null"`
@@ -65,7 +64,7 @@ CREATE TABLE IF NOT EXISTS secrets (
 |---|---|---|
 | `id` | INTEGER | Internal auto-incrementing primary key |
 | `name` | TEXT | User-facing identifier. e.g. `"github"`, `"visa-debit"`. Must be unique. |
-| `type` | TEXT | Secret type tag. e.g. `"account"`, `"card"`. Drives deserialization in Go. |
+| `type` | TEXT | Secret type tag. e.g. `"account"`, `"finance"`. Drives deserialization in Go. |
 | `salt` | BLOB | 16 random bytes. Per-record. Used by Argon2id to derive the encryption key. |
 | `nonce` | BLOB | 12 random bytes. Per-record. Used by AES-GCM as the initialization vector. |
 | `encrypted` | BLOB | The AES-GCM ciphertext. Contains the JSON payload + GCM auth tag. |
@@ -84,7 +83,7 @@ The `encrypted` column is the heart of the polymorphic design.
 User inputs (username, password)
         │
         ▼
-Assembled into AccountSecret struct
+Assembled into AccountSecret struct by Collector
         │
         ▼
 Serialized to JSON bytes
@@ -116,11 +115,28 @@ Fields printed to terminal
 
 ---
 
+## WithRepo Session Pattern
+
+All database access in Vext is wrapped through `storage.WithRepo`:
+
+```go
+func WithRepo(dbPath string, fn func(*SecretRepository) error) error {
+    db, err := Open(dbPath)
+    if err != nil {
+        return err
+    }
+    defer Close(db)
+    return fn(NewSecretRepository(db))
+}
+```
+
+This guarantees that the DB connection is always opened fresh per operation and always closed on completion, regardless of error. No adapter or use case func manages DB lifecycle directly.
+
+---
+
 ## Payload Schemas (Per Type)
 
 These are the JSON structures that get encrypted and stored in `encrypted`. The database itself never sees these — it only stores the encrypted bytes.
-
-**Note:** `AccountSecret.Password` is `[]byte` in Go, so it serializes as a base64-encoded string in JSON (standard Go behavior for `[]byte` fields).
 
 ### type: `"account"`
 
@@ -131,14 +147,19 @@ These are the JSON structures that get encrypted and stored in `encrypted`. The 
 }
 ```
 
-### type: `"card"` *(Phase 2)*
+### type: `"finance"`
 
 ```json
 {
   "card_number": "4111111111111111",
-  "cvv": "123",
-  "expiration": "12/27",
-  "pin": "1234"
+  "security_code": "<base64>",
+  "card_pin": "<base64>",
+  "expiration_month": 12,
+  "expiration_year": 2027,
+  "bank_username": "bob",
+  "bank_password": "<base64>",
+  "bank_virtual_key": "<base64>",
+  "bank_cellphone": "+1234567890"
 }
 ```
 
@@ -150,7 +171,7 @@ These are the JSON structures that get encrypted and stored in `encrypted`. The 
 }
 ```
 
-Adding a new type requires only: defining a new Go struct under `core/secrets/`, adding a new `case` to `StoreSecretRequest.buildPayload()` and `RetrieveSecretUC`, and documenting it here. **The SQL schema does not change.**
+Adding a new type requires only: defining a new Go struct under `secrets/`, adding a new `case` to `Collector.Payload()` and the get adapter dispatch, and documenting it here. **The SQL schema does not change.**
 
 ---
 
@@ -172,6 +193,6 @@ For future schema changes (e.g. adding a new column), adding the field to `Secre
 
 **WAL and journal files:** SQLite may create `-wal` or `-journal` files alongside `vext.db` during writes. These are temporary. Because Vext encrypts before writing, these files will never contain plaintext secrets — only encrypted blobs.
 
-**File permissions:** After `vext init`, the database file is explicitly `chmod`-ed to `0600` (owner read/write only) by `InitStorageUC`. This prevents other users on the same machine from reading the file even if they obtain the path.
+**File permissions:** After `vext init`, the database file is explicitly set to `0600` (owner read/write only). This prevents other users on the same machine from reading the file even if they obtain the path.
 
-**Unique constraint errors:** GORM does not wrap SQLite's unique constraint violation in a typed error. `SQLiteRepository.Save` detects it via string inspection (`"UNIQUE constraint failed"`) and maps it to `core.ErrAlreadyExists`.
+**Unique constraint errors:** GORM does not wrap SQLite's unique constraint violation in a typed error. `SecretRepository.Create` detects it via string inspection (`"UNIQUE constraint failed"`) and maps it to `sentinel.ErrAlreadyExists`.
