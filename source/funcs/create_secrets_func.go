@@ -5,10 +5,8 @@ import (
 	"fmt"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
-	"vextpss/source/shared/storage"
 )
 
 // CreateSecretDto carries the inputs for the create use case.
@@ -40,14 +38,14 @@ func (d CreateSecretDto) validate() error {
 
 // CreateSecretFunc orchestrates encrypting and persisting a new secret.
 type CreateSecretFunc struct {
-	repo *storage.SecretRepository
-	enc  *cryptors.AESGCMEncryptor
+	repo Repository
+	enc  Encryptor
 }
 
 // ================================
 // NewCreateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewCreateSecretFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *CreateSecretFunc {
+func NewCreateSecretFunc(repo Repository, enc Encryptor) *CreateSecretFunc {
 	return &CreateSecretFunc{repo: repo, enc: enc}
 }
 
@@ -63,10 +61,7 @@ func (f *CreateSecretFunc) Run(ctx context.Context, dto CreateSecretDto) error {
 		return err
 	}
 
-	out, err := f.enc.Encrypt(ctx, cryptors.EncryptInDto{
-		Plaintext: dto.Plaintext,
-		Password:  dto.MasterPassword,
-	})
+	salt, nonce, ciphertext, err := f.enc.Encrypt(ctx, dto.Plaintext, dto.MasterPassword)
 	if err != nil {
 		return fmt.Errorf("encrypt: %w", err)
 	}
@@ -74,9 +69,9 @@ func (f *CreateSecretFunc) Run(ctx context.Context, dto CreateSecretDto) error {
 	secret := &secrets.Secret{
 		Name:  dto.Name,
 		Type:  dto.Type,
-		Salt:  out.Salt,
-		Nonce: out.Nonce,
+		Salt:  salt,
+		Nonce: nonce,
 	}
 
-	return f.repo.Create(ctx, secret, out.Ciphertext)
+	return f.repo.Create(ctx, secret, ciphertext)
 }

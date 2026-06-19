@@ -7,10 +7,8 @@ import (
 	"os"
 	"time"
 
-	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
-	"vextpss/source/shared/storage"
 )
 
 // exportRecord is the serialized form of one credential inside the bundle.
@@ -59,14 +57,14 @@ func (d ExportSecretsDto) validate() error {
 
 // ExportSecretsFunc orchestrates reading all secrets and writing an encrypted export file.
 type ExportSecretsFunc struct {
-	repo *storage.SecretRepository
-	enc  *cryptors.AESGCMEncryptor
+	repo Repository
+	enc  Encryptor
 }
 
 // ================================
 // NewExportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewExportSecretsFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *ExportSecretsFunc {
+func NewExportSecretsFunc(repo Repository, enc Encryptor) *ExportSecretsFunc {
 	return &ExportSecretsFunc{repo: repo, enc: enc}
 }
 
@@ -107,19 +105,16 @@ func (f *ExportSecretsFunc) Run(ctx context.Context, dto ExportSecretsDto) error
 	}
 	defer memory.Cleaner(bundle)
 
-	out, err := f.enc.Encrypt(ctx, cryptors.EncryptInDto{
-		Plaintext: bundle,
-		Password:  dto.MasterPassword,
-	})
+	salt, nonce, data, err := f.enc.Encrypt(ctx, bundle, dto.MasterPassword)
 	if err != nil {
 		return fmt.Errorf("encrypt bundle: %w", err)
 	}
 
 	ef, err := json.Marshal(exportFile{
 		Version: 1,
-		Salt:    out.Salt,
-		Nonce:   out.Nonce,
-		Data:    out.Ciphertext,
+		Salt:    salt,
+		Nonce:   nonce,
+		Data:    data,
 	})
 	if err != nil {
 		return fmt.Errorf("marshal export file: %w", err)

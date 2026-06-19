@@ -5,18 +5,17 @@ import (
 	"fmt"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/storage"
 )
 
 // RetrieveSecretsFunc orchestrates listing secret metadata without touching encrypted payloads.
 type RetrieveSecretsFunc struct {
-	repo *storage.SecretRepository
+	repo Repository
 }
 
 // ================================
 // NewRetrieveSecretsFunc wires the use case with its persistence dependency.
 // ================================
-func NewRetrieveSecretsFunc(repo *storage.SecretRepository) *RetrieveSecretsFunc {
+func NewRetrieveSecretsFunc(repo Repository) *RetrieveSecretsFunc {
 	return &RetrieveSecretsFunc{repo: repo}
 }
 

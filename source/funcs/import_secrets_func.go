@@ -8,10 +8,8 @@ import (
 	"os"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
-	"vextpss/source/shared/storage"
 )
 
 // ImportResult reports how many records were processed.
@@ -41,14 +39,14 @@ func (d ImportSecretsDto) validate() error {
 
 // ImportSecretsFunc orchestrates reading an encrypted export file and inserting its records.
 type ImportSecretsFunc struct {
-	repo *storage.SecretRepository
-	enc  *cryptors.AESGCMEncryptor
+	repo Repository
+	enc  Encryptor
 }
 
 // ================================
 // NewImportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewImportSecretsFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *ImportSecretsFunc {
+func NewImportSecretsFunc(repo Repository, enc Encryptor) *ImportSecretsFunc {
 	return &ImportSecretsFunc{repo: repo, enc: enc}
 }
 
@@ -74,12 +72,7 @@ func (f *ImportSecretsFunc) Run(ctx context.Context, dto ImportSecretsDto) (Impo
 		return ImportResult{}, fmt.Errorf("parse export file: %w", err)
 	}
 
-	plaintext, err := f.enc.Decrypt(ctx, cryptors.DecryptInDto{
-		Password:   dto.MasterPassword,
-		Salt:       ef.Salt,
-		Nonce:      ef.Nonce,
-		Ciphertext: ef.Data,
-	})
+	plaintext, err := f.enc.Decrypt(ctx, dto.MasterPassword, ef.Salt, ef.Nonce, ef.Data)
 	defer memory.Cleaner(plaintext)
 	if err != nil {
 		return ImportResult{}, sentinel.ErrDecryptionFailed

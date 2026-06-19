@@ -5,10 +5,8 @@ import (
 	"fmt"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/cryptors"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
-	"vextpss/source/shared/storage"
 )
 
 // UpdateSecretDto carries the inputs for the update use case.
@@ -40,14 +38,14 @@ func (d UpdateSecretDto) validate() error {
 
 // UpdateSecretFunc orchestrates re-encrypting and persisting a replacement payload.
 type UpdateSecretFunc struct {
-	repo *storage.SecretRepository
-	enc  *cryptors.AESGCMEncryptor
+	repo Repository
+	enc  Encryptor
 }
 
 // ================================
 // NewUpdateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewUpdateSecretFunc(repo *storage.SecretRepository, enc *cryptors.AESGCMEncryptor) *UpdateSecretFunc {
+func NewUpdateSecretFunc(repo Repository, enc Encryptor) *UpdateSecretFunc {
 	return &UpdateSecretFunc{repo: repo, enc: enc}
 }
 
@@ -63,10 +61,7 @@ func (f *UpdateSecretFunc) Run(ctx context.Context, dto UpdateSecretDto) error {
 		return err
 	}
 
-	out, err := f.enc.Encrypt(ctx, cryptors.EncryptInDto{
-		Plaintext: dto.Plaintext,
-		Password:  dto.MasterPassword,
-	})
+	salt, nonce, ciphertext, err := f.enc.Encrypt(ctx, dto.Plaintext, dto.MasterPassword)
 	if err != nil {
 		return fmt.Errorf("encrypt: %w", err)
 	}
@@ -74,9 +69,9 @@ func (f *UpdateSecretFunc) Run(ctx context.Context, dto UpdateSecretDto) error {
 	secret := &secrets.Secret{
 		Name:  dto.Name,
 		Type:  dto.Type,
-		Salt:  out.Salt,
-		Nonce: out.Nonce,
+		Salt:  salt,
+		Nonce: nonce,
 	}
 
-	return f.repo.Update(ctx, secret, out.Ciphertext)
+	return f.repo.Update(ctx, secret, ciphertext)
 }
