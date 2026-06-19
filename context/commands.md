@@ -3,7 +3,7 @@
 ## Global Rules
 
 - **Secrets are never passed as flags.** All sensitive inputs (service passwords, master password) are collected via hidden interactive prompts. This prevents them from appearing in shell history.
-- **The master password is never stored.** It is requested on-demand and discarded from memory immediately after use.
+- **The master password is never stored.** It is requested on-demand and discarded from memory immediately after use via `memory.Cleaner`.
 - **Commands are idempotent where stated.** `vext init` can be run multiple times safely.
 
 ---
@@ -19,7 +19,7 @@ vext init
 **What it does:**
 - Creates the config directory at `~/.config/vext/` if it doesn't exist.
 - Creates `vext.db` inside that directory.
-- Runs the `CREATE TABLE IF NOT EXISTS` migration to set up the schema.
+- Runs the `AutoMigrate` migration to set up the schema (`CREATE TABLE IF NOT EXISTS`).
 - Sets file permissions to `0600` on the database file.
 
 **Requires master password:** No
@@ -30,8 +30,7 @@ vext init
 ```
 
 **Notes:**
-- Safe to run more than once. If the database already exists, it does nothing.
-- Should be the first command documented in the README under "Getting Started".
+- Safe to run more than once. AutoMigrate is idempotent — it never drops or overwrites existing data.
 
 ---
 
@@ -41,28 +40,23 @@ Stores a new secret under the given name.
 
 ```
 vext add github
-vext add protonmail
-vext add --type credit visa-debit
-vext add --generate twitter
+vext add visa-debit --type finance
 ```
 
 **Flags:**
 
 | Flag | Default | Description |
 |---|---|---|
-| `--type` | `account` | Secret type: `account` or `credit` |
-| `--generate` | false | Generate a random password instead of prompting (account only) |
-| `--gen-length` | 20 | Length of the generated password |
-| `--gen-no-symbols` | false | Exclude symbols from the generated password |
+| `--type`, `-t` | `account` | Secret type: `account` or `finance` |
 
 **For `--type account`:**
 1. Prompts for username (visible).
-2. Prompts for password (hidden) — or generates one if `--generate` is set.
+2. Prompts for password (hidden).
 3. Prompts for master password (hidden).
 
-**For `--type credit`:**
-1. Prompts for card number, CVV, expiration month/year, PIN (required).
-2. Prompts for bank name, bank username, bank password, virtual key, cellphone, country code (optional — leave blank to skip).
+**For `--type finance`:**
+1. Prompts for card number (visible), CVV (hidden), card PIN (hidden), expiry month (visible), expiry year (visible).
+2. Prompts for optional bank fields: bank username (visible), bank password (hidden), virtual key (hidden), cellphone (visible). Leave blank to skip.
 3. Prompts for master password (hidden).
 
 **Requires master password:** Yes
@@ -74,12 +68,12 @@ vext add --generate twitter
 
 **Output (duplicate name):**
 ```
-[X] Error: a credential named "github" already exists. Use `vext update` to modify it.
+[X] a credential named "github" already exists. Use `vext upd` to modify it.
 ```
 
 **Notes:**
-- `<name>` is case-sensitive. `github` and `GitHub` would be two different records.
-- Secret data is never passed as a flag — all sensitive inputs are collected via hidden prompts.
+- `<name>` is case-sensitive. `github` and `GitHub` are two different records.
+- Secret data is never passed as a flag.
 
 ---
 
@@ -92,37 +86,44 @@ vext get github
 ```
 
 **What it does:**
-1. Looks up the record by `<name>` in SQLite.
-2. If not found, exits with an error.
-3. Prompts for the master password (hidden input).
-4. Derives the encryption key using Argon2id + the stored Salt for that record.
-5. Attempts to decrypt the payload using AES-256-GCM.
-6. If decryption succeeds, prints the fields to the terminal.
-7. If decryption fails (wrong password or tampered data), prints a generic error.
-8. Zeros out sensitive values in memory.
+1. Prompts for the master password (hidden input).
+2. Opens the database and looks up the record by `<name>`.
+3. Derives the encryption key using Argon2id + the stored Salt for that record.
+4. Decrypts the payload using AES-256-GCM.
+5. Dispatches on type to deserialize and print the fields.
+6. Zeros all sensitive values in memory.
 
 **Requires master password:** Yes
 
-**Output (success):**
+**Output (account):**
 ```
 Service:  github
 Username: bob@example.com
 Password: hunter2
 ```
 
+**Output (finance):**
+```
+Service:         visa-debit
+Card Number:     4111111111111111
+CVV:             ***
+Card PIN:        ***
+Expiry:          12/2027
+Bank Username:   bob
+Bank Password:   ***
+Bank Virtual Key:***
+Bank Cellphone:  +1234567890
+```
+
 **Output (not found):**
 ```
-[X] Error: no credential named "github" found.
+[X] no secret named "github" found
 ```
 
 **Output (wrong master password or tampered data):**
 ```
-[X] Error: master password incorrect or data corrupted.
+[X] wrong master password or data corrupted
 ```
-
-**Notes:**
-- The password is displayed in plaintext. Physical screen security is the user's responsibility.
-- A future Phase 2 version may add a `--copy` flag to send the password to the clipboard instead.
 
 ---
 
@@ -135,27 +136,54 @@ vext list
 ```
 
 **What it does:**
-- Queries SQLite for `name` and `type` columns only (no encrypted data is touched).
+- Queries SQLite for `name`, `type`, and timestamps only (no encrypted data is touched).
 - Formats and prints a table sorted alphabetically by name.
 
 **Requires master password:** No
 
 **Output:**
 ```
-Your stored secrets:
-──────────────────────────────
-NAME             TYPE
-──────────────────────────────
-github           account
-netflix          account
-protonmail       account
-──────────────────────────────
+NAME             TYPE        CREATED
+────────────────────────────────────────
+github           account     2025-06-01
+netflix          account     2025-06-02
+visa-debit       finance     2025-06-03
+────────────────────────────────────────
 Total: 3 secrets.
 ```
 
+---
+
+## `vext upd <name>`
+
+Updates the payload for an existing secret.
+
+```
+vext upd github
+```
+
+**What it does:**
+1. Opens the database and looks up the existing record by `<name>` to determine its type.
+2. Re-prompts for all fields of that type (same flow as `vext add` for that type).
+3. Prompts for master password.
+4. Re-encrypts the new payload with a fresh salt and nonce.
+5. Replaces the stored record.
+
+**Requires master password:** Yes
+
+**Output (success):**
+```
+[✓] Secret "github" updated.
+```
+
+**Output (not found):**
+```
+[X] no secret named "github" found
+```
+
 **Notes:**
-- Usernames and passwords are never shown. Only names and types.
-- No master password needed — this operates entirely on non-sensitive metadata.
+- The `--type` flag is not needed — the type is resolved from the existing record.
+- A fresh salt and nonce are generated on every update. The previous ciphertext is fully replaced.
 
 ---
 
@@ -168,16 +196,15 @@ vext rm github
 ```
 
 **What it does:**
-1. Verifies the record exists.
-2. Prompts for confirmation: `Are you sure you want to delete "github"? (y/N)`
-3. On confirmation, executes `DELETE FROM secrets WHERE name = ?`.
-4. Prints a success message.
+1. Prompts for confirmation: `Delete "github"? This cannot be undone (y/N)`.
+2. On confirmation, opens the database and executes `DELETE FROM secrets WHERE name = ?`.
+3. Prints a success message.
 
 **Requires master password:** No
 
 **Output (confirmed):**
 ```
-[✓] Credential "github" deleted.
+[✓] Secret "github" deleted.
 ```
 
 **Output (cancelled):**
@@ -187,19 +214,78 @@ Aborted.
 
 **Output (not found):**
 ```
-[X] Error: no credential named "github" found.
+[X] no secret named "github" found
 ```
 
 **Notes:**
-- Deletion is permanent and irreversible. There is no recycle bin or undo.
-- The master password is not required to delete because no secret data is being read. This is a known tradeoff. A future version may require it for added protection.
+- Deletion is permanent and irreversible.
 - The confirmation prompt defaults to `N` (no). The user must explicitly type `y` to proceed.
+- No master password required since no secret data is read.
+
+---
+
+## `vext export`
+
+Exports an encrypted backup of all secrets to a portable file.
+
+```
+vext export
+vext export --out ~/vext-backup.vxt
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--out`, `-o` | `vext-export-YYYYMMDD-HHMMSS.vxt` | Output file path |
+
+**What it does:**
+1. Prompts for master password.
+2. Reads all secrets (with encrypted blobs) from the database.
+3. Bundles them into a JSON structure and re-encrypts the entire bundle with the master password.
+4. Writes the encrypted export file to disk with `0600` permissions.
+
+**Requires master password:** Yes
+
+**Output:**
+```
+[✓] Exported to vext-export-20260618-143022.vxt
+```
+
+**Notes:**
+- The export file is itself encrypted with the master password and is safe to store in cloud storage or transfer over any channel.
+
+---
+
+## `vext import <file>`
+
+Imports secrets from an encrypted export file.
+
+```
+vext import ~/vext-backup.vxt
+```
+
+**What it does:**
+1. Prompts for master password.
+2. Reads and decrypts the export file.
+3. Inserts each record into the current database.
+4. Skips records whose name already exists (no overwrite).
+
+**Requires master password:** Yes
+
+**Output:**
+```
+[✓] Imported 3 secret(s), skipped 1 duplicate(s).
+```
+
+**Output (wrong master password or corrupted file):**
+```
+[X] wrong master password or corrupted export file
+```
 
 ---
 
 ## Phase 2 Commands (Planned)
-
-These commands are planned for a future release and are documented here for design reference.
 
 ### `vext gen`
 
@@ -207,39 +293,19 @@ Generates a cryptographically secure random password.
 
 ```
 vext gen --length 24 --no-symbols
-vext add twitter --generate
 ```
 
-Uses `crypto/rand` (never `math/rand`). Can be piped directly into `vext add`.
+The generator implementation already exists in `shared/passgen/generator.go`. This feature only requires wiring a Cobra command to it.
 
 ---
 
-### `vext update <name>`
+### Shell Autocompletion
 
-Updates the password for an existing credential. Requires master password.
-
-```
-vext update github
-```
-
----
-
-### `vext export`
-
-Exports an encrypted backup of the entire database to a portable file.
+Cobra has native support for generating completion scripts:
 
 ```
-vext export --out ~/backup.vext
-```
-
-The output file is encrypted with the master password and can be imported on another machine.
-
----
-
-### `vext import`
-
-Imports a backup file created by `vext export`.
-
-```
-vext import ~/backup.vext
+vext completion bash
+vext completion zsh
+vext completion fish
+vext completion powershell
 ```

@@ -4,143 +4,157 @@
 
 ```
 source/
-├── main.go                         ← DI wiring: builds all deps, assembles command tree
+├── main.go                              ← Entry point: calls cmd.Execute()
 ├── cmd/
-│   ├── root.go                     ← package cmd; Cobra root command only
-│   ├── handlers/                   ← One handler per CLI command
-│   │   ├── add_handler.go
-│   │   ├── get_handler.go
-│   │   ├── init_handler.go
-│   │   ├── list_handler.go
-│   │   └── rm_handler.go
-│   └── helpers/
-│       ├── prompter.go             ← Prompter interface + CLIPrompter + MockPrompter
-│       └── formatter.go            ← PrintSecret, PrintSecretList
-├── core/                           ← Domain layer: entities, value objects, errors
-│   ├── errors.go                   ← DomainError type + canonical error vars
-│   ├── secret.go                   ← Secret entity, SecretID, SecretPayload interface
-│   └── secrets/
-│       └── account_secret.go       ← AccountSecret value object (Password []byte)
-├── dal/                            ← Data Access Layer contracts + GORM model
-│   ├── db.go                       ← Open/Close/Migrate via GORM
-│   ├── initialiser.go              ← Initialiser struct (creates dir + DB + schema)
-│   ├── repository.go               ← SecretRepository interface
-│   ├── schemas.go                  ← SecretRecord GORM model (maps to "secrets" table)
-│   └── repos/
-│       └── sqlite_repository.go    ← SQLiteRepository: GORM implementation
-├── pkg/
-│   ├── apps/                       ← Application use cases (business logic)
-│   │   ├── init_storage_uc.go      ← StorageInitialiser interface + InitStorageUC
-│   │   ├── store_secret_uc.go      ← StoreSecretUC
-│   │   ├── retrieve_secret_uc.go   ← RetrieveSecretUC
-│   │   ├── list_secrets_uc.go      ← ListSecretsUC
-│   │   └── delete_secret_uc.go     ← DeleteSecretUC
-│   ├── configs/
-│   │   └── app_config.go           ← AppConfig, Load() — OS-aware paths
-│   ├── shared/
-│   │   └── utils.go                ← Zero, GenerateSalt, Now
-│   └── tokens/                     ← Encryption contracts + implementation
-│       ├── encryptor.go            ← Encryptor interface
-│       └── aes_gcm_encryptor.go    ← AESGCMEncryptor (Argon2id + AES-256-GCM)
-└── tests/
-    └── mocks/                      ← Reusable test doubles
-        ├── mock_repo.go            ← MockRepository (dal.SecretRepository)
-        ├── mock_encryptor.go       ← MockEncryptor (tokens.Encryptor)
-        └── mock_initialiser.go     ← MockInitialiser (apps.StorageInitialiser)
+│   ├── root.go                          ← Builds AppDeps, wires all Cobra commands
+│   ├── adapters/                        ← One file per CLI command
+│   │   ├── init_adapter.go
+│   │   ├── add_adapter.go
+│   │   ├── get_adapter.go
+│   │   ├── list_adapter.go
+│   │   ├── upd_adapter.go
+│   │   ├── rm_adapter.go
+│   │   ├── export_adapter.go
+│   │   └── import_adapter.go
+│   ├── collectors/                      ← Terminal input: prompts the user for data
+│   │   ├── prompter.go                  ← Prompter struct + NewPrompter
+│   │   ├── collector.go                 ← Collector struct (Payload, Master, Confirm)
+│   │   ├── account.go                   ← collectAccount: prompts for account fields
+│   │   └── finance.go                   ← collectFinance: prompts for finance fields
+│   └── formatters/                      ← Terminal output: prints secrets and messages
+│       ├── helpers.go                   ← Success, Error, Info printers
+│       ├── tabtable.go                  ← PrintTabTable for vext list
+│       ├── account.go                   ← PrintAccount
+│       └── finance.go                   ← PrintFinance
+├── funcs/                               ← Use cases: one file per operation
+│   ├── create_secrets_func.go
+│   ├── obtain_secret_func.go
+│   ├── retrieve_secrets_func.go
+│   ├── update_secret_func.go
+│   ├── delete_secret_func.go
+│   ├── export_secrets_func.go
+│   └── import_secrets_func.go
+├── secrets/                             ← Domain models and type constants
+│   ├── secret.go                        ← Secret and Credential structs
+│   ├── types.go                         ← TypeAccount, TypeFinance constants + IsKnownType
+│   ├── account.go                       ← AccountSecret struct
+│   ├── finance.go                       ← FinanceSecret struct
+└── shared/
+    ├── config.go                        ← AppName, DBPath()
+    ├── deps.go                          ← AppDeps struct (shared across all adapters)
+    ├── cryptors/
+    │   ├── aes_gcm.go                   ← AESGCMEncryptor + EncryptInDto/OutDto/DecryptInDto
+    │   └── aes_config.go                ← AESGCMConfig, Argon2Config, DefaultConfig
+    ├── memory/
+    │   └── cleaner.go                   ← Cleaner: zeros sensitive byte slices
+    ├── passgen/
+    │   └── generator.go                 ← Generate: cryptographically secure password gen
+    ├── sentinel/
+    │   └── domain.go                    ← Canonical error variables (ErrNotFound, etc.)
+    └── storage/
+        ├── database.go                  ← Open/Close gorm.DB
+        ├── initialiser.go               ← Initialiser: creates dir + DB + schema
+        ├── schemas.go                   ← SecretRecord GORM model
+        ├── repository.go                ← SecretRepository: all CRUD operations
+        └── session.go                   ← WithRepo: open DB → run fn → close DB
 ```
 
 ---
 
 ## Architectural Layers
 
-Vext is structured in four clean, decoupled layers. Each layer has a single responsibility and communicates only with the layer directly below it.
+Vext is organized in four layers. Each layer communicates only downward.
 
 ```
-┌──────────────────────────────────────────────┐
-│         Interface Layer (cmd/)               │  ← CLI: handlers, prompter, formatter
-├──────────────────────────────────────────────┤
-│      Application Layer (pkg/apps/)           │  ← Use cases: orchestrates domain + infra
-├──────────────────────────────────────────────┤
-│           Domain Layer (core/)               │  ← Entities, value objects, domain errors
-├──────────────────────────────────────────────┤
-│  Infrastructure Layer (dal/ + pkg/tokens/)   │  ← SQLite (GORM), AES-GCM encryptor
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│          Interface Layer  (cmd/adapters/)             │  ← CLI: parse args, format output
+│          Input Layer      (cmd/collectors/)           │  ← Terminal: collect user input
+│          Output Layer     (cmd/formatters/)           │  ← Terminal: print results
+├──────────────────────────────────────────────────────┤
+│          Use Case Layer   (funcs/)                    │  ← Orchestrate: validate + coordinate
+├──────────────────────────────────────────────────────┤
+│          Domain Layer     (secrets/)                  │  ← Structs, type constants
+├──────────────────────────────────────────────────────┤
+│          Infrastructure   (shared/storage/)           │  ← SQLite via GORM
+│                           (shared/cryptors/)          │  ← AES-256-GCM + Argon2id
+└──────────────────────────────────────────────────────┘
 ```
 
-**Interface Layer (`cmd/`)** handles user interaction. It collects input, calls use cases, and formats output. It knows nothing about SQL, crypto, or domain rules.
+**Interface Layer (`cmd/adapters/`)** receives the Cobra command dispatch. Each adapter validates arguments, calls the appropriate use case func, and delegates formatting to `cmd/formatters/`. It does not contain business logic.
 
-**Application Layer (`pkg/apps/`)** orchestrates the operation: validates requests, calls the domain, invokes the encryptor, delegates to the repository. It contains no SQL or crypto implementations — only interfaces.
+**Input Layer (`cmd/collectors/`)** handles all terminal I/O for data collection. `Prompter` reads visible and hidden lines. `Collector` assembles typed payloads from those prompts.
 
-**Domain Layer (`core/`)** defines entities (`Secret`), value objects (`AccountSecret`), the `SecretPayload` polymorphic interface, and canonical domain errors. It imports nothing from the project — zero dependencies on infra or framework.
+**Use Case Layer (`funcs/`)** is where business logic lives. Each func validates its DTO, coordinates the encryptor and repository, and returns a result or error. It knows nothing about Cobra or terminal I/O.
 
-**Infrastructure Layer (`dal/`, `pkg/tokens/`)** provides concrete implementations of the contracts defined in the layers above:
-- `dal/repos/SQLiteRepository` implements `dal.SecretRepository` using GORM.
-- `pkg/tokens/AESGCMEncryptor` implements `tokens.Encryptor` using Argon2id + AES-256-GCM.
+**Domain Layer (`secrets/`)** defines the data shapes: the `Secret` and `Credential` structs used at the persistence boundary, the typed payload structs (`AccountSecret`, `FinanceSecret`), and the `TypeAccount`/`TypeFinance` constants.
+
+**Infrastructure (`shared/storage/`, `shared/cryptors/`)** provides the concrete implementations: SQLite persistence via GORM and AES-256-GCM encryption via Argon2id.
 
 ---
 
 ## Dependency Graph
 
 ```
-cmd/handlers ──→ pkg/apps ──→ core
-     │               │──────→ dal            (SecretRepository interface)
-     │               └──────→ pkg/tokens     (Encryptor interface)
-     │
-cmd/helpers  (Prompter interface — used by handlers)
+main.go
+  └──→ cmd/root.go
+         ├──→ cmd/adapters      ──→ funcs
+         │                      ──→ shared/storage
+         │                      ──→ cmd/formatters
+         │                      ──→ secrets
+         │                      ──→ shared/sentinel
+         ├──→ cmd/collectors    ──→ secrets
+         │                      ──→ shared/memory
+         │                      ──→ shared/sentinel
+         ├──→ shared            ──→ cmd/collectors   [⚠ see audit.md]
+         │                      ──→ shared/cryptors
+         ├──→ shared/cryptors   ──→ shared/memory
+         │                      ──→ shared/sentinel
+         └──→ shared/storage    ──→ secrets
+                                ──→ shared/sentinel
 
-dal/repos ────→ dal          (SecretRecord, SecretRepository)
-          ────→ core         (Secret, ErrSecretNotFound, etc.)
-          ────→ gorm.io/gorm
-
-pkg/tokens ───→ core         (ErrDecryptionFailed)
-           ───→ pkg/shared
-
-main.go ──────→ all packages above (single composition root)
+funcs ──→ secrets
+      ──→ shared/cryptors
+      ──→ shared/memory
+      ──→ shared/sentinel
+      ──→ shared/storage
 ```
 
-**Key rule:** `core` imports nothing from the project. `pkg/apps` does not import from `cmd/`. `dal/repos` does not import from `pkg/apps`. Dependencies flow inward — never outward.
+**No abstract interfaces exist** between layers. All types flowing through `AppDeps` and func constructors are concrete:
+- `*collectors.Collector`
+- `*cryptors.AESGCMEncryptor`
+- `*storage.SecretRepository`
 
 ---
 
-## Interface Placement
+## Key Design Patterns
 
-Interfaces are defined in the package that **uses** them (the consumer), not the one that implements them. This enforces the Dependency Inversion Principle and keeps layers independent:
+### Adapter per Command
+Each Cobra command is defined in a dedicated file under `cmd/adapters/`. The adapter function (e.g., `AddCmd`) receives `shared.AppDeps` and returns a `*cobra.Command`. The actual logic lives in a private `runXxx` function. This keeps the command wiring separate from the execution logic.
 
-| Interface | Package | Implemented by |
-|---|---|---|
-| `SecretRepository` | `dal` | `dal/repos.SQLiteRepository` |
-| `Encryptor` | `pkg/tokens` | `pkg/tokens.AESGCMEncryptor` |
-| `StorageInitialiser` | `pkg/apps` | `dal.Initialiser` |
-| `Prompter` | `cmd/helpers` | `cmd/helpers.CLIPrompter` |
-
----
-
-## Design Patterns
-
-### Handler per Command
-Each Cobra command is wrapped in a dedicated handler struct under `cmd/handlers/`. The handler's `CobraCommand()` method returns the `*cobra.Command`, and `Handle(ctx, ...)` contains the actual logic. This makes handlers testable without Cobra.
+### WithRepo Session Pattern
+Database access is always wrapped in `storage.WithRepo(dbPath, fn)`. This function opens the DB, creates a `*SecretRepository`, passes it to `fn`, then closes the DB — regardless of error. No adapter or func manages DB lifecycle directly.
 
 ### Encrypt Before Persist
-The persistence layer (`dal`) **never receives plaintext**. Encryption always happens in `pkg/tokens` before any data crosses the `dal` boundary. This is a hard architectural rule.
+The persistence layer (`shared/storage/`) **never receives plaintext**. Encryption always happens in `funcs/` before any data crosses the `storage` boundary. This is a hard architectural rule.
+
+### Deferred Memory Zeroing
+Every `[]byte` holding sensitive data is zeroed via `defer memory.Cleaner(b)` immediately after it is assigned — before any error path can return early and leave sensitive data in memory.
 
 ### Fail Loudly on Crypto Errors
-When AES-GCM authentication fails, `AESGCMEncryptor` returns `core.ErrDecryptionFailed` — a domain error with the message `"master password incorrect or data corrupted"`. The raw crypto error is never surfaced.
+When AES-GCM authentication fails, `AESGCMEncryptor` returns `sentinel.ErrDecryptionFailed`. The raw `crypto/cipher` error is never surfaced to the user.
 
 ### No Flags for Secrets
-Passwords and the master password are **never** accepted as CLI flags. They are always collected via `Prompter.ReadPassword()`, which uses `term.ReadPassword` internally and leaves no shell history trail.
-
-### Nil-safe Use Cases in main
-When the database file does not exist yet (first run before `vext init`), `db` is nil and the data use cases (`storeUC`, `retrieveUC`, etc.) are initialized as nil pointers. Handlers must check for nil before use, which allows `vext init` to run cleanly on a fresh environment without an early crash.
+Passwords and master passwords are **never** accepted as CLI flags. They are always collected via `Collector.Master()` or `Collector.Payload()`, which use `Prompter.ReadSecret()` → `term.ReadPassword` internally.
 
 ---
 
-## Coding Style & Best Practices
+## Coding Conventions
 
 ### Memory Hygiene
-Any `[]byte` holding a plaintext secret must be zeroed immediately after use via `shared.Zero()`. This applies to master passwords, account passwords, and derived keys. Go's GC does not guarantee prompt reclamation of sensitive memory.
+Any `[]byte` holding sensitive data must be zeroed via `memory.Cleaner(b)` as a `defer` immediately after assignment. This applies to master passwords, plaintext payloads, and derived keys.
 
 ### Error Messages
-User-facing errors involving security use intentionally vague messages (e.g., `"master password incorrect or data corrupted"`). Internal errors are wrapped with context for debugging but never printed raw to the terminal.
+User-facing security errors are intentionally vague (`"wrong master password or data corrupted"`). Internal errors are wrapped with `fmt.Errorf("context: %w", err)` but never printed raw.
 
 ### Crypto Values Are Per-Record
 Every stored secret gets its own randomly generated Salt (16 bytes) and Nonce (12 bytes). Reusing these values would allow an attacker with the database to correlate records.
@@ -150,8 +164,6 @@ The database file is stored via `os.UserConfigDir()`:
 - Linux/macOS: `~/.config/vext/vext.db`
 - Windows: `%AppData%\vext\vext.db`
 
-Never store the database in the current working directory or next to the binary.
-
 ---
 
 ## Dependencies
@@ -160,8 +172,8 @@ Never store the database in the current working directory or next to the binary.
 |---|---|
 | `github.com/spf13/cobra` | CLI framework |
 | `golang.org/x/term` | Secure terminal input (hidden password prompts) |
-| `golang.org/x/crypto/argon2` | Argon2id KDF |
+| `golang.org/x/crypto/argon2` | Argon2id key derivation |
 | `gorm.io/gorm` | ORM — query DSL, AutoMigrate, error handling |
-| `github.com/glebarez/sqlite` | Pure Go SQLite driver for GORM (no CGO required) |
+| `github.com/glebarez/sqlite` | Pure Go SQLite driver (no CGO required) |
 
-All cryptographic primitives (`crypto/aes`, `crypto/cipher`, `crypto/rand`) come from Go's standard library. No third-party crypto packages are used.
+All cryptographic primitives (`crypto/aes`, `crypto/cipher`, `crypto/rand`) come from Go's standard library.
