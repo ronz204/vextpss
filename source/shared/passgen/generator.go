@@ -12,10 +12,10 @@ const (
 	charsetSymbols = "!@#$%^&*()_+-=[]{}|;:,.<>?"
 )
 
-// ================================
+// ======================================
 // GeneratePassword returns a cryptographically secure random password drawn from
 // lowercase + uppercase + digits + (optionally) symbols.
-// ================================
+// ======================================
 func Generate(length int, useSymbols bool) (string, error) {
 	charset := charsetLower + charsetUpper + charsetDigits
 	if useSymbols {

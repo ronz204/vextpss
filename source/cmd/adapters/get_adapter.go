@@ -12,7 +12,7 @@ import (
 	"vextpss/source/funcs"
 	"vextpss/source/secrets"
 	"vextpss/source/shared"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
 )
@@ -33,7 +33,7 @@ func GetCmd(deps shared.AppDeps) *cobra.Command {
 
 func runGet(name string, deps shared.AppDeps) error {
 	masterPassword, err := deps.Collector.Master()
-	defer passgen.Cleaner(masterPassword)
+	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
@@ -48,7 +48,7 @@ func runGet(name string, deps shared.AppDeps) error {
 		})
 		return runErr
 	})
-	defer passgen.Cleaner(result.Payload)
+	defer memory.Cleaner(result.Payload)
 	if err != nil {
 		if errors.Is(err, sentinel.ErrSecretNotFound) {
 			formatters.Error(fmt.Sprintf("no secret named %q found", name))

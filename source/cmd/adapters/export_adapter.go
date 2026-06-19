@@ -10,7 +10,7 @@ import (
 	"vextpss/source/cmd/formatters"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/storage"
 )
 
@@ -39,7 +39,7 @@ func runExport(outPath string, deps shared.AppDeps) error {
 	}
 
 	masterPassword, err := deps.Collector.Master()
-	defer passgen.Cleaner(masterPassword)
+	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err

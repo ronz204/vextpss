@@ -10,7 +10,7 @@ import (
 	"vextpss/source/cmd/formatters"
 	"vextpss/source/funcs"
 	"vextpss/source/shared"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
 )
@@ -39,13 +39,13 @@ func runUpd(name string, deps shared.AppDeps) error {
 		}
 
 		plaintext, err := deps.Collector.Payload(existing.Type)
-		defer passgen.Cleaner(plaintext)
+		defer memory.Cleaner(plaintext)
 		if err != nil {
 			return err
 		}
 
 		masterPassword, err := deps.Collector.Master()
-		defer passgen.Cleaner(masterPassword)
+		defer memory.Cleaner(masterPassword)
 		if err != nil {
 			return err
 		}

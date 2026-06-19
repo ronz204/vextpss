@@ -15,7 +15,7 @@ func Execute() error {
 	deps := shared.AppDeps{
 		DBPath:    shared.DBPath(),
 		Enc:       crypto.NewAESGCMEncryptor(crypto.DefaultConfig()),
-		Collector: collectors.NewTerminalCollector(collectors.NewTerminalPrompter()),
+		Collector: collectors.NewCollector(collectors.NewPrompter()),
 	}
 
 	root := &cobra.Command{

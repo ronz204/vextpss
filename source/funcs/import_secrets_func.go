@@ -9,7 +9,7 @@ import (
 
 	"vextpss/source/core"
 	"vextpss/source/secrets"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
 )
@@ -58,7 +58,7 @@ func NewImportSecretsFunc(repo *storage.SecretRepository, enc core.Encryptor) *I
 // MasterPassword is zeroed on return regardless of outcome.
 // ================================
 func (f *ImportSecretsFunc) Run(ctx context.Context, dto ImportSecretsDto) (ImportResult, error) {
-	defer passgen.Cleaner(dto.MasterPassword)
+	defer memory.Cleaner(dto.MasterPassword)
 
 	if err := dto.validate(); err != nil {
 		return ImportResult{}, err
@@ -80,7 +80,7 @@ func (f *ImportSecretsFunc) Run(ctx context.Context, dto ImportSecretsDto) (Impo
 		Nonce:      ef.Nonce,
 		Ciphertext: ef.Data,
 	})
-	defer passgen.Cleaner(plaintext)
+	defer memory.Cleaner(plaintext)
 	if err != nil {
 		return ImportResult{}, sentinel.ErrDecryptionFailed
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 )
 
 // ======================================
@@ -19,7 +19,7 @@ func collectAccount(p *Prompter) ([]byte, error) {
 	}
 
 	rawPassword, err := p.ReadSecret("Password")
-	defer passgen.Cleaner(rawPassword)
+	defer memory.Cleaner(rawPassword)
 	if err != nil {
 		return nil, err
 	}

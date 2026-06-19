@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"vextpss/source/core"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
 )
@@ -55,7 +55,7 @@ func NewObtainSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *Ob
 // MasterPassword is zeroed on return. Payload in the result must be zeroed by the caller.
 // ================================
 func (f *ObtainSecretFunc) Run(ctx context.Context, dto ObtainSecretDto) (ObtainSecretResult, error) {
-	defer passgen.Cleaner(dto.MasterPassword)
+	defer memory.Cleaner(dto.MasterPassword)
 
 	if err := dto.validate(); err != nil {
 		return ObtainSecretResult{}, err

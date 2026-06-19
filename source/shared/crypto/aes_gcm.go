@@ -10,7 +10,7 @@ import (
 	"io"
 
 	"vextpss/source/core"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 
 	"golang.org/x/crypto/argon2"
@@ -34,7 +34,7 @@ func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, dto core.EncryptInDto) (core.
 	}
 
 	key := e.deriveKey(dto.Password, salt)
-	defer passgen.Cleaner(key)
+	defer memory.Cleaner(key)
 
 	nonce, err := e.randomBytes(e.config.NonceLen)
 	if err != nil {
@@ -62,7 +62,7 @@ func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in core.DecryptInDto) ([]byte
 	}
 
 	key := e.deriveKey(in.Password, in.Salt)
-	defer passgen.Cleaner(key)
+	defer memory.Cleaner(key)
 
 	gcm, err := e.newGCM(key)
 	if err != nil {

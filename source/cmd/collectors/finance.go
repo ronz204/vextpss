@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 )
 
@@ -22,13 +22,13 @@ func collectFinance(p *Prompter) ([]byte, error) {
 	}
 
 	securityCode, err := p.ReadSecret("CVV")
-	defer passgen.Cleaner(securityCode)
+	defer memory.Cleaner(securityCode)
 	if err != nil {
 		return nil, err
 	}
 
 	cardPin, err := p.ReadSecret("Card PIN")
-	defer passgen.Cleaner(cardPin)
+	defer memory.Cleaner(cardPin)
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +54,13 @@ func collectFinance(p *Prompter) ([]byte, error) {
 	bankUsername, _ := p.ReadLine("Bank username")
 
 	bankPassword, err := p.ReadSecret("Bank password")
-	defer passgen.Cleaner(bankPassword)
+	defer memory.Cleaner(bankPassword)
 	if err != nil {
 		return nil, err
 	}
 
 	bankVirtualKey, err := p.ReadSecret("Bank virtual key")
-	defer passgen.Cleaner(bankVirtualKey)
+	defer memory.Cleaner(bankVirtualKey)
 	if err != nil {
 		return nil, err
 	}

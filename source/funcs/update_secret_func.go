@@ -6,7 +6,7 @@ import (
 
 	"vextpss/source/core"
 	"vextpss/source/secrets"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
 )
@@ -56,8 +56,8 @@ func NewUpdateSecretFunc(repo *storage.SecretRepository, enc core.Encryptor) *Up
 // Zeroes Plaintext and MasterPassword on return regardless of outcome.
 // ================================
 func (f *UpdateSecretFunc) Run(ctx context.Context, dto UpdateSecretDto) error {
-	defer passgen.Cleaner(dto.MasterPassword)
-	defer passgen.Cleaner(dto.Plaintext)
+	defer memory.Cleaner(dto.MasterPassword)
+	defer memory.Cleaner(dto.Plaintext)
 
 	if err := dto.validate(); err != nil {
 		return err

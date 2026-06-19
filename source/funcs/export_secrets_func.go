@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"vextpss/source/core"
-	"vextpss/source/shared/passgen"
+	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
 )
@@ -75,7 +75,7 @@ func NewExportSecretsFunc(repo *storage.SecretRepository, enc core.Encryptor) *E
 // MasterPassword is zeroed on return regardless of outcome.
 // ================================
 func (f *ExportSecretsFunc) Run(ctx context.Context, dto ExportSecretsDto) error {
-	defer passgen.Cleaner(dto.MasterPassword)
+	defer memory.Cleaner(dto.MasterPassword)
 
 	if err := dto.validate(); err != nil {
 		return err
@@ -105,7 +105,7 @@ func (f *ExportSecretsFunc) Run(ctx context.Context, dto ExportSecretsDto) error
 	if err != nil {
 		return fmt.Errorf("marshal bundle: %w", err)
 	}
-	defer passgen.Cleaner(bundle)
+	defer memory.Cleaner(bundle)
 
 	out, err := f.enc.Encrypt(ctx, core.EncryptInDto{
 		Plaintext: bundle,
