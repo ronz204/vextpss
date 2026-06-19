@@ -21,7 +21,7 @@ import (
 // ================================
 func UpdCmd(deps shared.AppDeps) *cobra.Command {
 	return &cobra.Command{
-		Use:   "upd <name>",
+		Use:   "update <name>",
 		Short: "Update an existing secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
