@@ -6,10 +6,6 @@ import (
 	"vextpss/source/secrets"
 )
 
-// ======================================
-// PrintFinance prints all fields of a finance secret.
-// Optional bank fields are skipped when empty.
-// ======================================
 func PrintFinance(name string, s secrets.FinanceSecret) {
 	fmt.Printf("Name:        %s\n", name)
 	fmt.Printf("Card number: %s\n", s.CardNumber)
