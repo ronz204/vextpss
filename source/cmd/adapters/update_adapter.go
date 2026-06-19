@@ -30,39 +30,46 @@ func UpdCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Co
 }
 
 func runUpd(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
-	err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
-		// Resolve the existing type before prompting — the user should not need to remember it.
+	var secretType string
+	if err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
 		existing, _, err := repo.GetByName(context.Background(), name)
 		if err != nil {
 			return err
 		}
-
-		plaintext, err := input.Payload(existing.Type)
-		defer memory.Cleaner(plaintext)
-		if err != nil {
-			return err
-		}
-
-		masterPassword, err := input.Master()
-		defer memory.Cleaner(masterPassword)
-		if err != nil {
-			return err
-		}
-
-		return funcs.NewUpdateSecretFunc(repo, enc).Run(context.Background(), funcs.UpdateSecretDto{
-			Name:           name,
-			Type:           existing.Type,
-			Plaintext:      plaintext,
-			MasterPassword: masterPassword,
-		})
-	})
-
-	if err != nil {
+		secretType = existing.Type
+		return nil
+	}); err != nil {
 		if errors.Is(err, sentinel.ErrSecretNotFound) {
 			formatters.Error(fmt.Sprintf("no secret named %q found", name))
 		} else {
 			formatters.Error(err.Error())
 		}
+		return err
+	}
+
+	plaintext, err := input.Payload(secretType)
+	defer memory.Cleaner(plaintext)
+	if err != nil {
+		formatters.Error(err.Error())
+		return err
+	}
+
+	masterPassword, err := input.Master()
+	defer memory.Cleaner(masterPassword)
+	if err != nil {
+		formatters.Error(err.Error())
+		return err
+	}
+
+	if err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+		return funcs.NewUpdateSecretFunc(repo, enc).Run(context.Background(), funcs.UpdateSecretDto{
+			Name:           name,
+			Type:           secretType,
+			Plaintext:      plaintext,
+			MasterPassword: masterPassword,
+		})
+	}); err != nil {
+		formatters.Error(err.Error())
 		return err
 	}
 
