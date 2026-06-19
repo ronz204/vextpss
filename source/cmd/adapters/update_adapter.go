@@ -9,7 +9,6 @@ import (
 
 	"vextpss/source/cmd/formatters"
 	"vextpss/source/funcs"
-	"vextpss/source/shared"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -19,38 +18,38 @@ import (
 // UpdCmd returns the cobra command for "vext upd <name>".
 // The secret type is resolved from the existing record — no --type flag required.
 // ================================
-func UpdCmd(deps shared.AppDeps) *cobra.Command {
+func UpdCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <name>",
 		Short: "Update an existing secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpd(args[0], deps)
+			return runUpd(args[0], dbPath, enc, input)
 		},
 	}
 }
 
-func runUpd(name string, deps shared.AppDeps) error {
-	err := storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
+func runUpd(name, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
+	err := storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
 		// Resolve the existing type before prompting — the user should not need to remember it.
 		existing, _, err := repo.GetByName(context.Background(), name)
 		if err != nil {
 			return err
 		}
 
-		plaintext, err := deps.Collector.Payload(existing.Type)
+		plaintext, err := input.Payload(existing.Type)
 		defer memory.Cleaner(plaintext)
 		if err != nil {
 			return err
 		}
 
-		masterPassword, err := deps.Collector.Master()
+		masterPassword, err := input.Master()
 		defer memory.Cleaner(masterPassword)
 		if err != nil {
 			return err
 		}
 
-		return funcs.NewUpdateSecretFunc(repo, deps.Enc).Run(context.Background(), funcs.UpdateSecretDto{
+		return funcs.NewUpdateSecretFunc(repo, enc).Run(context.Background(), funcs.UpdateSecretDto{
 			Name:           name,
 			Type:           existing.Type,
 			Plaintext:      plaintext,

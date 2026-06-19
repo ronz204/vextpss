@@ -10,7 +10,6 @@ import (
 	"vextpss/source/cmd/formatters"
 	"vextpss/source/funcs"
 	"vextpss/source/secrets"
-	"vextpss/source/shared"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 	"vextpss/source/shared/storage"
@@ -19,7 +18,7 @@ import (
 // ================================
 // AddCmd returns the cobra command for "vext add <name>".
 // ================================
-func AddCmd(deps shared.AppDeps) *cobra.Command {
+func AddCmd(dbPath string, enc funcs.Encryptor, input funcs.Collector) *cobra.Command {
 	var secretType string
 
 	cmd := &cobra.Command{
@@ -27,7 +26,7 @@ func AddCmd(deps shared.AppDeps) *cobra.Command {
 		Short: "Store a new secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(args[0], secretType, deps)
+			return runAdd(args[0], secretType, dbPath, enc, input)
 		},
 	}
 
@@ -35,23 +34,23 @@ func AddCmd(deps shared.AppDeps) *cobra.Command {
 	return cmd
 }
 
-func runAdd(name, secretType string, deps shared.AppDeps) error {
-	plaintext, err := deps.Collector.Payload(secretType)
+func runAdd(name, secretType, dbPath string, enc funcs.Encryptor, input funcs.Collector) error {
+	plaintext, err := input.Payload(secretType)
 	defer memory.Cleaner(plaintext)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	masterPassword, err := deps.Collector.Master()
+	masterPassword, err := input.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	err = storage.WithRepo(deps.DBPath, func(repo *storage.SecretRepository) error {
-		return funcs.NewCreateSecretFunc(repo, deps.Enc).Run(context.Background(), funcs.CreateSecretDto{
+	err = storage.WithRepo(dbPath, func(repo *storage.SecretRepository) error {
+		return funcs.NewCreateSecretFunc(repo, enc).Run(context.Background(), funcs.CreateSecretDto{
 			Name:           name,
 			Type:           secretType,
 			Plaintext:      plaintext,
