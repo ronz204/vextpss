@@ -10,11 +10,11 @@ import (
 	"vextpss/source/shared/sentinel"
 )
 
-// ================================
+// ======================================
 // collectFinance prompts for card and bank credentials, then marshals them into a JSON payload.
 // Sensitive byte slices are zeroed immediately after marshaling.
 // Bank fields are optional — the user may leave them blank.
-// ================================
+// ======================================
 func collectFinance(p *Prompter) ([]byte, error) {
 	cardNumber, err := p.ReadLine("Card number")
 	if err != nil {
