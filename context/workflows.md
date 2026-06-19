@@ -2,13 +2,11 @@
 
 ## How to Read This Document
 
-Each workflow describes a complete user action from command input to terminal output, including what happens internally at each step. The goal is to understand the full data journey, not just the surface behavior.
+Each workflow describes a complete user action from command input to terminal output, including what happens internally at each step.
 
 ---
 
 ## Workflow 1: First-Time Setup
-
-**Trigger:** User installs Vext for the first time.
 
 ```
 vext init
@@ -18,31 +16,25 @@ vext init
 User runs `vext init`
         │
         ▼
-Check if ~/.config/vext/ exists
-        │
+Initialiser checks if ~/.config/vext/ exists
         ├── No  → Create directory with permissions 0700
-        │
         └── Yes → Continue
         │
         ▼
 Check if vext.db exists
-        │
         ├── No  → Create vext.db, set permissions 0600
-        │          Run CREATE TABLE IF NOT EXISTS migration
-        │
-        └── Yes → Run CREATE TABLE IF NOT EXISTS (safe, idempotent)
+        │          Run AutoMigrate (CREATE TABLE IF NOT EXISTS)
+        └── Yes → Run AutoMigrate (idempotent, no-op)
         │
         ▼
 Print: [✓] Vext initialized at ~/.config/vext/vext.db
 ```
 
-**Key point:** This command is safe to run multiple times. It will never overwrite existing data.
+**Key point:** Safe to run multiple times. It will never overwrite existing data.
 
 ---
 
-## Workflow 2: Saving a New Credential
-
-**Trigger:** User wants to store credentials for a service.
+## Workflow 2: Saving a New Account Credential
 
 ```
 vext add github
@@ -52,38 +44,34 @@ vext add github
 Receive argument: name = "github"
         │
         ▼
-Prompt: Username (visible input)
-  → user types: bob@example.com
+Collector.Payload("account")
+  → Prompt: Username (visible)    → bob@example.com
+  → Prompt: Password (hidden)     → hunter2
+  → Marshal into AccountSecret JSON → {"username":"...","password":"<b64>"}
         │
         ▼
-Prompt: Password (hidden input — term.ReadPassword)
-  → user types: hunter2
+Collector.Master()
+  → Prompt: Master password (hidden) → MyMasterKey!
         │
         ▼
-Prompt: Master Password (hidden input — term.ReadPassword)
-  → user types: MyMasterKey!
+storage.WithRepo opens vext.db
         │
         ▼
-Generate 16 random bytes → Salt
-Generate 12 random bytes → Nonce
+CreateSecretFunc.Run(dto)
+  → Validate DTO (name, type, plaintext, master password all present)
+  → AESGCMEncryptor.Encrypt(plaintext, masterPassword)
+      → Generate 16 random bytes → Salt
+      → Argon2id(masterPassword, Salt) → 32-byte Key
+      → Generate 12 random bytes → Nonce
+      → AES-256-GCM Encrypt(JSON, Key, Nonce) → Ciphertext
+      → defer memory.Cleaner(key)
+  → SecretRepository.Create(secret, ciphertext)
+      → INSERT INTO secrets (name, type, salt, nonce, encrypted)
+        VALUES ("github", "account", <salt>, <nonce>, <ciphertext>)
+  → defer memory.Cleaner(masterPassword, plaintext)
         │
         ▼
-Argon2id(MyMasterKey!, Salt) → 32-byte Encryption Key
-        │
-        ▼
-Build JSON payload:
-  {"username":"bob@example.com","password":"hunter2"}
-        │
-        ▼
-AES-256-GCM Encrypt(JSON payload, Key, Nonce)
-  → EncryptedPayload (opaque bytes)
-        │
-        ▼
-Zero out: master password bytes, plaintext password bytes, key bytes
-        │
-        ▼
-INSERT INTO secrets (name, type, salt, nonce, encrypted_payload)
-  VALUES ("github", "account", <salt>, <nonce>, <encrypted_payload>)
+storage.WithRepo closes vext.db
         │
         ▼
 Print: [✓] Credential "github" saved.
@@ -93,8 +81,6 @@ Print: [✓] Credential "github" saved.
 
 ## Workflow 3: Retrieving a Credential
 
-**Trigger:** User needs to log into a service and wants to look up their credentials.
-
 ```
 vext get github
 ```
@@ -103,36 +89,35 @@ vext get github
 Receive argument: name = "github"
         │
         ▼
-SELECT salt, nonce, encrypted_payload, type FROM secrets WHERE name = "github"
-        │
-        ├── No rows → Print error: no credential named "github" found. Exit.
-        │
-        └── Found → Load salt, nonce, encrypted_payload into memory
+Collector.Master()
+  → Prompt: Master password (hidden) → MyMasterKey!
         │
         ▼
-Prompt: Master Password (hidden input)
-  → user types: MyMasterKey!
+storage.WithRepo opens vext.db
         │
         ▼
-Argon2id(MyMasterKey!, stored_salt) → 32-byte Key
+ObtainSecretFunc.Run(dto)
+  → Validate DTO
+  → SecretRepository.GetByName("github")
+      → SELECT * FROM secrets WHERE name = "github"
+      ├── Not found → return sentinel.ErrSecretNotFound
+      └── Found → secret (metadata) + encrypted blob
+  → AESGCMEncryptor.Decrypt(masterPassword, salt, nonce, ciphertext)
+      → Argon2id(masterPassword, salt) → 32-byte Key
+      → AES-256-GCM Decrypt(ciphertext, Key, nonce)
+      ├── Auth tag FAILS → return sentinel.ErrDecryptionFailed
+      └── Auth tag PASSES → JSON bytes
+  → defer memory.Cleaner(masterPassword, key)
+  → return ObtainSecretResult{Name, Type, Payload}
         │
         ▼
-AES-256-GCM Decrypt(encrypted_payload, Key, stored_nonce)
-        │
-        ├── Auth tag FAILS (wrong password or tampered data)
-        │     → Zero out all sensitive bytes
-        │     → Print: [X] Error: master password incorrect or data corrupted.
-        │     → Exit
-        │
-        └── Auth tag PASSES → JSON payload bytes
+storage.WithRepo closes vext.db
         │
         ▼
-switch type {
-  case "account": unmarshal into AccountPayload
-}
-        │
-        ▼
-Zero out: master password bytes, key bytes, JSON bytes
+Adapter dispatches on result.Type
+  case "account": json.Unmarshal → AccountSecret
+  → formatters.PrintAccount(name, secret)
+  → defer memory.Cleaner(result.Payload)
         │
         ▼
 Print:
@@ -141,40 +126,89 @@ Print:
   Password: hunter2
 ```
 
-**Key point:** The error message on wrong password is identical to the error on data tampering. An attacker learns nothing about which case occurred.
+**Key point:** The error on wrong password is identical to the error on data tampering. An attacker learns nothing about which case occurred.
 
 ---
 
 ## Workflow 4: Browsing Stored Secrets
-
-**Trigger:** User doesn't remember the exact name they used for a service.
 
 ```
 vext list
 ```
 
 ```
-SELECT name, type FROM secrets ORDER BY name ASC
+storage.WithRepo opens vext.db
         │
         ▼
-Format into table:
-  ──────────────────────────
-  NAME             TYPE
-  ──────────────────────────
-  github           account
-  netflix          account
-  protonmail       account
-  ──────────────────────────
+RetrieveSecretsFunc.Run()
+  → SecretRepository.ListAll()
+      → SELECT id, name, type, created_at, updated_at FROM secrets ORDER BY name ASC
+      (salt, nonce, encrypted are excluded from this query)
+        │
+        ▼
+storage.WithRepo closes vext.db
+        │
+        ▼
+formatters.PrintTabTable(secrets)
+
+  NAME             TYPE        CREATED
+  ──────────────────────────────────────
+  github           account     2025-06-01
+  netflix          account     2025-06-02
+  visa-debit       finance     2025-06-03
+  ──────────────────────────────────────
   Total: 3 secrets.
 ```
 
-**Key point:** No master password. No decryption. The encrypted payload is never touched. This is a read of metadata only.
+**Key point:** No master password. No decryption. The encrypted payload is never touched.
 
 ---
 
-## Workflow 5: Deleting a Credential
+## Workflow 5: Updating a Credential
 
-**Trigger:** User no longer uses a service and wants to clean up.
+```
+vext upd github
+```
+
+```
+Receive argument: name = "github"
+        │
+        ▼
+storage.WithRepo opens vext.db
+        │
+        ▼
+SecretRepository.GetByName("github") → existing secret (to get its type)
+        │
+        ▼
+Collector.Payload(existing.Type)
+  → Re-prompts all fields for that type (hidden where sensitive)
+        │
+        ▼
+Collector.Master()
+  → Prompt: Master password (hidden)
+        │
+        ▼
+UpdateSecretFunc.Run(dto)
+  → Validate DTO
+  → AESGCMEncryptor.Encrypt(plaintext, masterPassword) → new salt + nonce + ciphertext
+  → SecretRepository.Update(secret, ciphertext)
+      → UPDATE secrets SET salt=?, nonce=?, encrypted=? WHERE name = "github"
+      ├── No rows affected → return sentinel.ErrSecretNotFound
+      └── Updated
+  → defer memory.Cleaner(masterPassword, plaintext)
+        │
+        ▼
+storage.WithRepo closes vext.db
+        │
+        ▼
+Print: [✓] Secret "github" updated.
+```
+
+**Key point:** The type is resolved from the existing record — the user does not need to specify `--type` when updating.
+
+---
+
+## Workflow 6: Deleting a Credential
 
 ```
 vext rm github
@@ -184,56 +218,116 @@ vext rm github
 Receive argument: name = "github"
         │
         ▼
-SELECT id FROM secrets WHERE name = "github"
-        │
-        ├── No rows → Print: [X] Error: no credential named "github" found. Exit.
-        │
-        └── Found → Continue
-        │
-        ▼
-Prompt: Are you sure you want to delete "github"? (y/N)
-        │
-        ├── User types N or presses Enter → Print: Aborted. Exit.
-        │
-        └── User types y → Continue
+Collector.Confirm("Delete \"github\"? This cannot be undone")
+  → Prompt: Delete "github"? This cannot be undone (y/N)
+  ├── N or Enter → Print: Aborted. Exit.
+  └── y → Continue
         │
         ▼
-DELETE FROM secrets WHERE name = "github"
+storage.WithRepo opens vext.db
         │
         ▼
-Print: [✓] Credential "github" deleted.
+DeleteSecretFunc.Run(dto)
+  → SecretRepository.Delete("github")
+      → DELETE FROM secrets WHERE name = "github"
+      ├── No rows affected → return sentinel.ErrSecretNotFound
+      └── Deleted
+        │
+        ▼
+storage.WithRepo closes vext.db
+        │
+        ▼
+Print: [✓] Secret "github" deleted.
 ```
 
-**Key point:** No decryption happens. The encrypted payload is deleted without ever being read.
+**Key point:** No decryption happens. No master password required.
 
 ---
 
-## Use Case: Rotating a Password
-
-When a service forces a password change, the current MVP flow is:
+## Workflow 7: Exporting a Backup
 
 ```
-vext rm github         # Delete the old record
-vext add github        # Re-add with the new password
+vext export --out ~/vext-backup.vxt
 ```
 
-This two-step process is intentional for the MVP. A dedicated `vext update <name>` command is planned for Phase 2 to make this atomic and cleaner.
+```
+Collector.Master()
+  → Prompt: Master password (hidden)
+        │
+        ▼
+storage.WithRepo opens vext.db
+        │
+        ▼
+ExportSecretsFunc.Run(dto)
+  → SecretRepository.GetAll()
+      → SELECT * FROM secrets ORDER BY name ASC
+      → Returns []Credential (each with encrypted blob already stored)
+  → Bundle all records into exportBundle{Version, ExportedAt, Records}
+  → json.Marshal(bundle) → bundleBytes
+  → AESGCMEncryptor.Encrypt(bundleBytes, masterPassword)
+      → New salt + nonce + ciphertext (the bundle is re-encrypted end-to-end)
+  → json.Marshal(exportFile{Salt, Nonce, Data}) → fileBytes
+  → os.WriteFile("~/vext-backup.vxt", fileBytes, 0600)
+  → defer memory.Cleaner(masterPassword, bundleBytes)
+        │
+        ▼
+storage.WithRepo closes vext.db
+        │
+        ▼
+Print: [✓] Exported to ~/vext-backup.vxt
+```
+
+**Key point:** The export file is a double-encrypted structure. Each record's payload is already encrypted in the database, and the entire bundle is re-encrypted with the master password for transport.
 
 ---
 
-## Use Case: Moving to a New Machine (Phase 2)
+## Workflow 8: Importing a Backup
 
-With the `vext export` / `vext import` commands planned for Phase 2:
+```
+vext import ~/vext-backup.vxt
+```
+
+```
+Collector.Master()
+  → Prompt: Master password (hidden)
+        │
+        ▼
+storage.WithRepo opens vext.db
+        │
+        ▼
+ImportSecretsFunc.Run(dto)
+  → os.ReadFile("~/vext-backup.vxt") → raw bytes
+  → json.Unmarshal → exportFile{Salt, Nonce, Data}
+  → AESGCMEncryptor.Decrypt(masterPassword, salt, nonce, data)
+      ├── Fails → return sentinel.ErrDecryptionFailed
+      └── plaintext → bundleBytes
+  → json.Unmarshal(bundleBytes) → exportBundle{Records}
+  → For each record:
+      → SecretRepository.Create(secret, record.Encrypted)
+      ├── ErrAlreadyExists → Skipped++
+      └── Success → Imported++
+  → defer memory.Cleaner(masterPassword, plaintext)
+        │
+        ▼
+storage.WithRepo closes vext.db
+        │
+        ▼
+Print: [✓] Imported 3 secret(s), skipped 1 duplicate(s).
+```
+
+---
+
+## Use Case: Moving to a New Machine
 
 ```
 # On old machine:
-vext export --out ~/vext-backup.enc
+vext export --out ~/vext-backup.vxt
 
 # Transfer the file (USB, secure channel, etc.)
 
 # On new machine:
 vext init
-vext import ~/vext-backup.enc
+vext import ~/vext-backup.vxt
 ```
 
-The export file is itself encrypted with the master password, so it can be transported without risk even over an insecure channel.
+The export file is encrypted with the master password, so it can be transported without risk even over an insecure channel.
