@@ -1,8 +1,7 @@
 package cryptors
 
 import (
-	ctx "context"
-
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -15,74 +14,49 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-type EncryptInDto struct {
-	Plaintext []byte
-	Password  []byte
-}
-
-type EncryptOutDto struct {
-	Salt       []byte
-	Nonce      []byte
-	Ciphertext []byte
-}
-
-type DecryptInDto struct {
-	Password   []byte
-	Salt       []byte
-	Nonce      []byte
-	Ciphertext []byte
-}
-
-// AESGCMEncryptor encrypts and decrypts secrets using AES-256-GCM with Argon2id key derivation.
 type AESGCMEncryptor struct {
 	config AESGCMConfig
 }
 
-// NewAESGCMEncryptor returns an encryptor with the provided configuration.
 func NewAESGCMEncryptor(config AESGCMConfig) *AESGCMEncryptor {
 	return &AESGCMEncryptor{config: config}
 }
 
 // ======================================
-// Encrypt derives a key from masterPassword + a fresh salt, then encrypts plaintext with AES-256-GCM.
+// Encrypt derives a key from password + a fresh salt, then encrypts plaintext with AES-256-GCM.
 // ======================================
-func (e *AESGCMEncryptor) Encrypt(ctx ctx.Context, dto EncryptInDto) (EncryptOutDto, error) {
-	salt, err := e.randomBytes(e.config.SaltLen)
+func (e *AESGCMEncryptor) Encrypt(_ context.Context, plaintext, password []byte) (salt, nonce, ciphertext []byte, err error) {
+	salt, err = e.randomBytes(e.config.SaltLen)
 	if err != nil {
-		return EncryptOutDto{}, fmt.Errorf("failed to generate salt: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	key := e.deriveKey(dto.Password, salt)
+	key := e.deriveKey(password, salt)
 	defer memory.Cleaner(key)
 
-	nonce, err := e.randomBytes(e.config.NonceLen)
+	nonce, err = e.randomBytes(e.config.NonceLen)
 	if err != nil {
-		return EncryptOutDto{}, fmt.Errorf("failed to generate nonce: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
 	gcm, err := e.newGCM(key)
 	if err != nil {
-		return EncryptOutDto{}, fmt.Errorf("failed to create cipher: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nil, nonce, dto.Plaintext, nil)
-
-	return EncryptOutDto{
-		Salt:       salt,
-		Nonce:      nonce,
-		Ciphertext: ciphertext,
-	}, nil
+	ciphertext = gcm.Seal(nil, nonce, plaintext, nil)
+	return salt, nonce, ciphertext, nil
 }
 
 // ======================================
-// Decrypt derives the same key from masterPassword + stored salt, then deciphers the payload.
+// Decrypt derives the same key from password + stored salt, then deciphers the payload.
 // ======================================
-func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in DecryptInDto) ([]byte, error) {
-	if len(in.Salt) != e.config.SaltLen || len(in.Nonce) != e.config.NonceLen {
+func (e *AESGCMEncryptor) Decrypt(_ context.Context, password, salt, nonce, ciphertext []byte) ([]byte, error) {
+	if len(salt) != e.config.SaltLen || len(nonce) != e.config.NonceLen {
 		return nil, sentinel.ErrDecryptionFailed
 	}
 
-	key := e.deriveKey(in.Password, in.Salt)
+	key := e.deriveKey(password, salt)
 	defer memory.Cleaner(key)
 
 	gcm, err := e.newGCM(key)
@@ -90,7 +64,7 @@ func (e *AESGCMEncryptor) Decrypt(ctx ctx.Context, in DecryptInDto) ([]byte, err
 		return nil, sentinel.ErrDecryptionFailed
 	}
 
-	plaintext, err := gcm.Open(nil, in.Nonce, in.Ciphertext, nil)
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, sentinel.ErrDecryptionFailed
 	}
