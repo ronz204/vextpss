@@ -17,12 +17,10 @@ func InitCmd(app App) *cobra.Command {
 		Long:  "Creates the config directory and database. Safe to run multiple times.",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			db, err := storage.NewInitialiser(app.DBPath).Setup(context.Background())
-			if err != nil {
+			if err := storage.SetupDB(context.Background(), app.DBPath); err != nil {
 				formatters.Error(err.Error())
 				return err
 			}
-			_ = storage.Close(db)
 			formatters.Success(fmt.Sprintf("Vext initialized at %s", app.DBPath))
 			return nil
 		},
