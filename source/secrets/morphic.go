@@ -1,5 +1,10 @@
 package secrets
 
+type AccountSecret struct {
+	Username string `json:"username"`
+	Password []byte `json:"password"`
+}
+
 type FinanceSecret struct {
 	CardPin         []byte `json:"card_pin"`
 	CardNumber      string `json:"card_number"`

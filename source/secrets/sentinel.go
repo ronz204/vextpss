@@ -1,4 +1,4 @@
-package sentinel
+package secrets
 
 type Sentinel string
 
