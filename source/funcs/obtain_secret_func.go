@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 )
@@ -37,14 +38,14 @@ type ObtainSecretResult struct {
 
 // ObtainSecretFunc orchestrates retrieving and decrypting a single secret by name.
 type ObtainSecretFunc struct {
-	repo Repository
-	enc  Encryptor
+	repo secrets.Repository
+	enc  secrets.Encryptor
 }
 
 // ================================
 // NewObtainSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewObtainSecretFunc(repo Repository, enc Encryptor) *ObtainSecretFunc {
+func NewObtainSecretFunc(repo secrets.Repository, enc secrets.Encryptor) *ObtainSecretFunc {
 	return &ObtainSecretFunc{repo: repo, enc: enc}
 }
 

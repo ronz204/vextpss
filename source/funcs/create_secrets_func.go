@@ -38,14 +38,14 @@ func (d CreateSecretDto) validate() error {
 
 // CreateSecretFunc orchestrates encrypting and persisting a new secret.
 type CreateSecretFunc struct {
-	repo Repository
-	enc  Encryptor
+	repo secrets.Repository
+	enc  secrets.Encryptor
 }
 
 // ================================
 // NewCreateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewCreateSecretFunc(repo Repository, enc Encryptor) *CreateSecretFunc {
+func NewCreateSecretFunc(repo secrets.Repository, enc secrets.Encryptor) *CreateSecretFunc {
 	return &CreateSecretFunc{repo: repo, enc: enc}
 }
 

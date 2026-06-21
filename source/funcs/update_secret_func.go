@@ -38,14 +38,14 @@ func (d UpdateSecretDto) validate() error {
 
 // UpdateSecretFunc orchestrates re-encrypting and persisting a replacement payload.
 type UpdateSecretFunc struct {
-	repo Repository
-	enc  Encryptor
+	repo secrets.Repository
+	enc  secrets.Encryptor
 }
 
 // ================================
 // NewUpdateSecretFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewUpdateSecretFunc(repo Repository, enc Encryptor) *UpdateSecretFunc {
+func NewUpdateSecretFunc(repo secrets.Repository, enc secrets.Encryptor) *UpdateSecretFunc {
 	return &UpdateSecretFunc{repo: repo, enc: enc}
 }
 

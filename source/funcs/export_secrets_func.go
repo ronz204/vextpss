@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/sentinel"
 )
@@ -57,14 +58,14 @@ func (d ExportSecretsDto) validate() error {
 
 // ExportSecretsFunc orchestrates reading all secrets and writing an encrypted export file.
 type ExportSecretsFunc struct {
-	repo Repository
-	enc  Encryptor
+	repo secrets.Repository
+	enc  secrets.Encryptor
 }
 
 // ================================
 // NewExportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewExportSecretsFunc(repo Repository, enc Encryptor) *ExportSecretsFunc {
+func NewExportSecretsFunc(repo secrets.Repository, enc secrets.Encryptor) *ExportSecretsFunc {
 	return &ExportSecretsFunc{repo: repo, enc: enc}
 }
 

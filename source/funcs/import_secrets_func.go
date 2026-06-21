@@ -39,14 +39,14 @@ func (d ImportSecretsDto) validate() error {
 
 // ImportSecretsFunc orchestrates reading an encrypted export file and inserting its records.
 type ImportSecretsFunc struct {
-	repo Repository
-	enc  Encryptor
+	repo secrets.Repository
+	enc  secrets.Encryptor
 }
 
 // ================================
 // NewImportSecretsFunc wires the use case with its infrastructure dependencies.
 // ================================
-func NewImportSecretsFunc(repo Repository, enc Encryptor) *ImportSecretsFunc {
+func NewImportSecretsFunc(repo secrets.Repository, enc secrets.Encryptor) *ImportSecretsFunc {
 	return &ImportSecretsFunc{repo: repo, enc: enc}
 }
 

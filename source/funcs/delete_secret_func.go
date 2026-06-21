@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"vextpss/source/secrets"
 	"vextpss/source/shared/sentinel"
 )
 
@@ -24,13 +25,13 @@ func (d DeleteSecretDto) validate() error {
 
 // DeleteSecretFunc orchestrates removing a persisted secret by name.
 type DeleteSecretFunc struct {
-	repo Repository
+	repo secrets.Repository
 }
 
 // ================================
 // NewDeleteSecretFunc wires the use case with its persistence dependency.
 // ================================
-func NewDeleteSecretFunc(repo Repository) *DeleteSecretFunc {
+func NewDeleteSecretFunc(repo secrets.Repository) *DeleteSecretFunc {
 	return &DeleteSecretFunc{repo: repo}
 }
 

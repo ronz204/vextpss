@@ -9,13 +9,13 @@ import (
 
 // RetrieveSecretsFunc orchestrates listing secret metadata without touching encrypted payloads.
 type RetrieveSecretsFunc struct {
-	repo Repository
+	repo secrets.Repository
 }
 
 // ================================
 // NewRetrieveSecretsFunc wires the use case with its persistence dependency.
 // ================================
-func NewRetrieveSecretsFunc(repo Repository) *RetrieveSecretsFunc {
+func NewRetrieveSecretsFunc(repo secrets.Repository) *RetrieveSecretsFunc {
 	return &RetrieveSecretsFunc{repo: repo}
 }
 
