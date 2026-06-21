@@ -3,6 +3,7 @@ package collectors
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
@@ -12,6 +13,10 @@ func collectFinance(p *Prompter) ([]byte, error) {
 	cardNumber, err := p.ReadLine("Card Number")
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.TrimSpace(cardNumber) == "" {
+		return nil, fmt.Errorf("%w: card number is required", secrets.ErrInvalidInput)
 	}
 
 	cardPin, err := p.ReadSecret("Card PIN")
@@ -31,9 +36,17 @@ func collectFinance(p *Prompter) ([]byte, error) {
 		return nil, err
 	}
 
+	if expirationMonth == 0 {
+		return nil, fmt.Errorf("%w: expiration month is required", secrets.ErrInvalidInput)
+	}
+
 	expirationYear, err := p.ReadInteger("Expiration year")
 	if err != nil {
 		return nil, err
+	}
+
+	if expirationYear == 0 {
+		return nil, fmt.Errorf("%w: expiration year is required", secrets.ErrInvalidInput)
 	}
 
 	bankUsername, err := p.ReadLine("App Username")
