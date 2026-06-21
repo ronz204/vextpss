@@ -5,14 +5,11 @@ const (
 	TypeFinance = "finance"
 )
 
-// ======================================
-// IsKnownType reports whether t is a registered secret type.
-// Add new constants here as new types are introduced.
-// ======================================
+var knownTypes = map[string]bool{
+	TypeAccount: true,
+	TypeFinance: true,
+}
+
 func IsKnownType(t string) bool {
-	switch t {
-	case TypeAccount, TypeFinance:
-		return true
-	}
-	return false
+	return knownTypes[t]
 }
