@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/sentinel"
 
 	"gorm.io/gorm"
 )
@@ -34,7 +33,7 @@ func (r *SecretRepository) Create(ctx context.Context, secret *secrets.Secret, e
 	result := r.db.WithContext(ctx).Create(record)
 	if result.Error != nil {
 		if strings.Contains(result.Error.Error(), "UNIQUE constraint failed") {
-			return sentinel.ErrAlreadyExists
+			return secrets.ErrAlreadyExists
 		}
 		return fmt.Errorf("insert failed: %w", result.Error)
 	}
@@ -98,14 +97,14 @@ func (r *SecretRepository) GetAll(ctx context.Context) ([]secrets.Credential, er
 
 // ======================================
 // GetByName retrieves a secret and its encrypted payload by name.
-// Returns sentinel.ErrSecretNotFound when no row matches.
+// Returns secrets.ErrSecretNotFound when no row matches.
 // ======================================
 func (r *SecretRepository) GetByName(ctx context.Context, name string) (*secrets.Secret, []byte, error) {
 	var record SecretRecord
 	result := r.db.WithContext(ctx).Where("name = ?", name).First(&record)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, nil, sentinel.ErrSecretNotFound
+			return nil, nil, secrets.ErrSecretNotFound
 		}
 		return nil, nil, fmt.Errorf("get by name failed: %w", result.Error)
 	}
@@ -124,7 +123,7 @@ func (r *SecretRepository) GetByName(ctx context.Context, name string) (*secrets
 
 // ======================================
 // Update replaces the crypto material and encrypted payload for an existing secret.
-// Returns sentinel.ErrSecretNotFound when no row matches.
+// Returns secrets.ErrSecretNotFound when no row matches.
 // ======================================
 func (r *SecretRepository) Update(ctx context.Context, secret *secrets.Secret, encrypted []byte) error {
 	result := r.db.WithContext(ctx).
@@ -139,14 +138,14 @@ func (r *SecretRepository) Update(ctx context.Context, secret *secrets.Secret, e
 		return fmt.Errorf("update failed: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return sentinel.ErrSecretNotFound
+		return secrets.ErrSecretNotFound
 	}
 	return nil
 }
 
 // ======================================
 // Delete removes a secret by name.
-// Returns sentinel.ErrSecretNotFound when no row matches.
+// Returns secrets.ErrSecretNotFound when no row matches.
 // ======================================
 func (r *SecretRepository) Delete(ctx context.Context, name string) error {
 	result := r.db.WithContext(ctx).Where("name = ?", name).Delete(&SecretRecord{})
@@ -154,7 +153,7 @@ func (r *SecretRepository) Delete(ctx context.Context, name string) error {
 		return fmt.Errorf("delete failed: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return sentinel.ErrSecretNotFound
+		return secrets.ErrSecretNotFound
 	}
 	return nil
 }
