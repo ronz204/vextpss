@@ -17,11 +17,16 @@ type App struct {
 }
 
 func Build() (App, func(), error) {
-	dbPath := storage.DBPath()
+	dbPath, err := storage.DBPath()
+	if err != nil {
+		return App{}, nil, err
+	}
+
 	db, err := storage.Open(dbPath)
 	if err != nil {
 		return App{}, nil, fmt.Errorf("open database: %w", err)
 	}
+
 	return App{
 		DBPath:     dbPath,
 		Repository: storage.NewSecretRepository(db),
