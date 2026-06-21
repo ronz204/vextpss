@@ -9,7 +9,6 @@ import (
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
-	"vextpss/source/shared/sentinel"
 )
 
 // ImportResult reports how many records were processed.
@@ -30,22 +29,18 @@ type ImportSecretsDto struct {
 func (d ImportSecretsDto) validate() error {
 	switch {
 	case d.FilePath == "":
-		return fmt.Errorf("%w: file path is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: file path is required", secrets.ErrInvalidInput)
 	case len(d.MasterPassword) == 0:
-		return fmt.Errorf("%w: master password is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: master password is required", secrets.ErrInvalidInput)
 	}
 	return nil
 }
 
-// ImportSecretsFunc orchestrates reading an encrypted export file and inserting its records.
 type ImportSecretsFunc struct {
 	repo secrets.Repository
 	enc  secrets.Encryptor
 }
 
-// ================================
-// NewImportSecretsFunc wires the use case with its infrastructure dependencies.
-// ================================
 func NewImportSecretsFunc(repo secrets.Repository, enc secrets.Encryptor) *ImportSecretsFunc {
 	return &ImportSecretsFunc{repo: repo, enc: enc}
 }
@@ -75,7 +70,7 @@ func (f *ImportSecretsFunc) Run(ctx context.Context, dto ImportSecretsDto) (Impo
 	plaintext, err := f.enc.Decrypt(ctx, dto.MasterPassword, ef.Salt, ef.Nonce, ef.Data)
 	defer memory.Cleaner(plaintext)
 	if err != nil {
-		return ImportResult{}, sentinel.ErrDecryptionFailed
+		return ImportResult{}, secrets.ErrDecryptionFailed
 	}
 
 	var bundle exportBundle
@@ -92,7 +87,7 @@ func (f *ImportSecretsFunc) Run(ctx context.Context, dto ImportSecretsDto) (Impo
 			Nonce: rec.Nonce,
 		}
 		if err = f.repo.Create(ctx, secret, rec.Encrypted); err != nil {
-			if errors.Is(err, sentinel.ErrAlreadyExists) {
+			if errors.Is(err, secrets.ErrAlreadyExists) {
 				result.Skipped++
 				continue
 			}

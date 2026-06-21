@@ -9,7 +9,6 @@ import (
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
-	"vextpss/source/shared/sentinel"
 )
 
 // exportRecord is the serialized form of one credential inside the bundle.
@@ -37,7 +36,6 @@ type exportFile struct {
 	Data    []byte `json:"data"`
 }
 
-// ExportSecretsDto carries the inputs for the export use case.
 type ExportSecretsDto struct {
 	FilePath       string
 	MasterPassword []byte
@@ -49,22 +47,18 @@ type ExportSecretsDto struct {
 func (d ExportSecretsDto) validate() error {
 	switch {
 	case d.FilePath == "":
-		return fmt.Errorf("%w: output path is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: output path is required", secrets.ErrInvalidInput)
 	case len(d.MasterPassword) == 0:
-		return fmt.Errorf("%w: master password is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: master password is required", secrets.ErrInvalidInput)
 	}
 	return nil
 }
 
-// ExportSecretsFunc orchestrates reading all secrets and writing an encrypted export file.
 type ExportSecretsFunc struct {
 	repo secrets.Repository
 	enc  secrets.Encryptor
 }
 
-// ================================
-// NewExportSecretsFunc wires the use case with its infrastructure dependencies.
-// ================================
 func NewExportSecretsFunc(repo secrets.Repository, enc secrets.Encryptor) *ExportSecretsFunc {
 	return &ExportSecretsFunc{repo: repo, enc: enc}
 }

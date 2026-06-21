@@ -5,10 +5,8 @@ import (
 	"fmt"
 
 	"vextpss/source/secrets"
-	"vextpss/source/shared/sentinel"
 )
 
-// DeleteSecretDto carries the inputs for the delete use case.
 type DeleteSecretDto struct {
 	Name string
 }
@@ -18,26 +16,22 @@ type DeleteSecretDto struct {
 // ================================
 func (d DeleteSecretDto) validate() error {
 	if d.Name == "" {
-		return fmt.Errorf("%w: name is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: name is required", secrets.ErrInvalidInput)
 	}
 	return nil
 }
 
-// DeleteSecretFunc orchestrates removing a persisted secret by name.
 type DeleteSecretFunc struct {
 	repo secrets.Repository
 }
 
-// ================================
-// NewDeleteSecretFunc wires the use case with its persistence dependency.
-// ================================
 func NewDeleteSecretFunc(repo secrets.Repository) *DeleteSecretFunc {
 	return &DeleteSecretFunc{repo: repo}
 }
 
 // ================================
 // Run validates the DTO and permanently removes the secret.
-// Returns sentinel.ErrSecretNotFound if no secret matches the name.
+// Returns secrets.ErrSecretNotFound if no secret matches the name.
 // ================================
 func (f *DeleteSecretFunc) Run(ctx context.Context, dto DeleteSecretDto) error {
 	if err := dto.validate(); err != nil {

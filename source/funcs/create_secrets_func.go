@@ -6,12 +6,8 @@ import (
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
-	"vextpss/source/shared/sentinel"
 )
 
-// CreateSecretDto carries the inputs for the create use case.
-// Plaintext is the JSON-encoded secret payload — the caller is responsible for marshaling.
-// Both Plaintext and MasterPassword are zeroed on Run return.
 type CreateSecretDto struct {
 	Name           string
 	Type           string
@@ -25,26 +21,22 @@ type CreateSecretDto struct {
 func (d CreateSecretDto) validate() error {
 	switch {
 	case d.Name == "":
-		return fmt.Errorf("%w: name is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: name is required", secrets.ErrInvalidInput)
 	case !secrets.IsKnownType(d.Type):
-		return fmt.Errorf("%w: type %q is not valid", sentinel.ErrInvalidInput, d.Type)
+		return fmt.Errorf("%w: type %q is not valid", secrets.ErrInvalidInput, d.Type)
 	case len(d.Plaintext) == 0:
-		return fmt.Errorf("%w: plaintext payload is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: plaintext payload is required", secrets.ErrInvalidInput)
 	case len(d.MasterPassword) == 0:
-		return fmt.Errorf("%w: master password is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: master password is required", secrets.ErrInvalidInput)
 	}
 	return nil
 }
 
-// CreateSecretFunc orchestrates encrypting and persisting a new secret.
 type CreateSecretFunc struct {
 	repo secrets.Repository
 	enc  secrets.Encryptor
 }
 
-// ================================
-// NewCreateSecretFunc wires the use case with its infrastructure dependencies.
-// ================================
 func NewCreateSecretFunc(repo secrets.Repository, enc secrets.Encryptor) *CreateSecretFunc {
 	return &CreateSecretFunc{repo: repo, enc: enc}
 }

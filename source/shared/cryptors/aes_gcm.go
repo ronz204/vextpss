@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
-	"vextpss/source/shared/sentinel"
 )
 
 type AESGCMEncryptor struct {
@@ -47,7 +47,7 @@ func (e *AESGCMEncryptor) Encrypt(_ context.Context, plaintext, password []byte)
 // ======================================
 func (e *AESGCMEncryptor) Decrypt(_ context.Context, password, salt, nonce, ciphertext []byte) ([]byte, error) {
 	if len(salt) != e.config.SaltLen || len(nonce) != e.config.NonceLen {
-		return nil, sentinel.ErrDecryptionFailed
+		return nil, secrets.ErrDecryptionFailed
 	}
 
 	key := e.deriveKey(password, salt)
@@ -55,12 +55,12 @@ func (e *AESGCMEncryptor) Decrypt(_ context.Context, password, salt, nonce, ciph
 
 	gcm, err := e.newGCM(key)
 	if err != nil {
-		return nil, sentinel.ErrDecryptionFailed
+		return nil, secrets.ErrDecryptionFailed
 	}
 
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, sentinel.ErrDecryptionFailed
+		return nil, secrets.ErrDecryptionFailed
 	}
 
 	return plaintext, nil

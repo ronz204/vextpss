@@ -6,10 +6,8 @@ import (
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
-	"vextpss/source/shared/sentinel"
 )
 
-// ObtainSecretDto carries the inputs for the get use case.
 type ObtainSecretDto struct {
 	Name           string
 	MasterPassword []byte
@@ -21,9 +19,9 @@ type ObtainSecretDto struct {
 func (d ObtainSecretDto) validate() error {
 	switch {
 	case d.Name == "":
-		return fmt.Errorf("%w: name is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: name is required", secrets.ErrInvalidInput)
 	case len(d.MasterPassword) == 0:
-		return fmt.Errorf("%w: master password is required", sentinel.ErrInvalidInput)
+		return fmt.Errorf("%w: master password is required", secrets.ErrInvalidInput)
 	}
 	return nil
 }
@@ -36,15 +34,11 @@ type ObtainSecretResult struct {
 	Payload []byte
 }
 
-// ObtainSecretFunc orchestrates retrieving and decrypting a single secret by name.
 type ObtainSecretFunc struct {
 	repo secrets.Repository
 	enc  secrets.Encryptor
 }
 
-// ================================
-// NewObtainSecretFunc wires the use case with its infrastructure dependencies.
-// ================================
 func NewObtainSecretFunc(repo secrets.Repository, enc secrets.Encryptor) *ObtainSecretFunc {
 	return &ObtainSecretFunc{repo: repo, enc: enc}
 }
@@ -67,7 +61,7 @@ func (f *ObtainSecretFunc) Run(ctx context.Context, dto ObtainSecretDto) (Obtain
 
 	plaintext, err := f.enc.Decrypt(ctx, dto.MasterPassword, secret.Salt, secret.Nonce, encrypted)
 	if err != nil {
-		return ObtainSecretResult{}, sentinel.ErrDecryptionFailed
+		return ObtainSecretResult{}, secrets.ErrDecryptionFailed
 	}
 
 	return ObtainSecretResult{
