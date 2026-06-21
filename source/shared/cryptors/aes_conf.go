@@ -1,6 +1,5 @@
 package cryptors
 
-// Argon2Config holds parameters for key derivation.
 type Argon2Config struct {
 	Time    uint32
 	Memory  uint32
@@ -8,19 +7,17 @@ type Argon2Config struct {
 	KeyLen  uint32
 }
 
-// AESGCMConfig bundles all cryptographic parameters.
 type AESGCMConfig struct {
 	Argon    Argon2Config
 	SaltLen  int
 	NonceLen int
 }
 
-// DefaultConfig returns production-grade parameters.
 func DefaultConfig() AESGCMConfig {
 	return AESGCMConfig{
 		Argon: Argon2Config{
 			Time:    3,
-			Memory:  64 * 1024, // 64 MB
+			Memory:  64 * 1024,
 			Threads: 2,
 			KeyLen:  32,
 		},
