@@ -9,9 +9,9 @@ import (
 const appName = "vext"
 
 func DBPath() (string, error) {
-	dir, err := os.UserConfigDir()
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("could not determine config directory: %w", err)
+		return "", fmt.Errorf("could not determine home directory: %w", err)
 	}
-	return filepath.Join(dir, appName, appName+".db"), nil
+	return filepath.Join(home, ".config", appName, appName+".db"), nil
 }

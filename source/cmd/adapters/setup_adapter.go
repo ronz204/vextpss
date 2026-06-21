@@ -10,18 +10,23 @@ import (
 	"vextpss/source/shared/storage"
 )
 
-func InitCmd(app App) *cobra.Command {
+func InitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Initialize the Vext environment",
 		Long:  "Creates the config directory and database. Safe to run multiple times.",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := storage.SetupDB(context.Background(), app.DBPath); err != nil {
+			dbPath, err := storage.DBPath()
+			if err != nil {
 				formatters.Error(err.Error())
 				return err
 			}
-			formatters.Success(fmt.Sprintf("Vext initialized at %s", app.DBPath))
+			if err := storage.SetupDB(context.Background(), dbPath); err != nil {
+				formatters.Error(err.Error())
+				return err
+			}
+			formatters.Success(fmt.Sprintf("Vext initialized at %s", dbPath))
 			return nil
 		},
 	}

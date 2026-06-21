@@ -10,13 +10,13 @@ import (
 	"vextpss/source/funcs"
 )
 
-func ListCmd(app App) *cobra.Command {
+func ListCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all stored secrets",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runList(app)
+			return runList(*app)
 		},
 	}
 }

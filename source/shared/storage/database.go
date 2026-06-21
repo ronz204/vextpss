@@ -8,10 +8,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// ======================================
 // Open returns a GORM connection to the SQLite database at path.
-// Swap sqlite.Open for a different GORM driver to target another engine.
-// ======================================
 func Open(path string) (*gorm.DB, error) {
 	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

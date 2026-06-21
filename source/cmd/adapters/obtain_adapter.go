@@ -13,13 +13,13 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-func GetCmd(app App) *cobra.Command {
+func GetCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <name>",
 		Short: "Retrieve and display a stored secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runGet(args[0], app)
+			return runGet(args[0], *app)
 		},
 	}
 }

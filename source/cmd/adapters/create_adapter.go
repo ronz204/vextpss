@@ -13,7 +13,7 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-func AddCmd(app App) *cobra.Command {
+func AddCmd(app *App) *cobra.Command {
 	var secretType string
 
 	c := &cobra.Command{
@@ -21,7 +21,7 @@ func AddCmd(app App) *cobra.Command {
 		Short: "Store a new secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runAdd(args[0], secretType, app)
+			return runAdd(args[0], secretType, *app)
 		},
 	}
 

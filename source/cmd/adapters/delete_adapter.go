@@ -13,13 +13,13 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-func RmCmd(app App) *cobra.Command {
+func RmCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm <name>",
 		Short: "Permanently delete a stored secret",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runRm(args[0], app)
+			return runRm(args[0], *app)
 		},
 	}
 }
