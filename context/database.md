@@ -1,32 +1,35 @@
-# Vext — Database Design
+# Vext — Base de Datos
 
-## Engine Choice: SQLite via GORM
+## Motor elegido: SQLite vía GORM
 
-Vext uses SQLite as its storage engine. It is a single file on disk, requires zero configuration, has no server process, and is battle-tested in production environments worldwide.
+Vext usa SQLite como motor de almacenamiento. Es un archivo único en disco, no requiere servidor, no necesita configuración y está probado en producción a escala mundial.
 
-The driver used is `github.com/glebarez/sqlite`, a Pure Go SQLite implementation. This avoids requiring a C compiler (CGO) on the build machine and produces a fully static, portable binary. GORM (`gorm.io/gorm`) is used as the ORM layer: it provides a clean query DSL, handles struct-to-row mapping, and manages migrations via `AutoMigrate`.
+El driver utilizado es `github.com/glebarez/sqlite`, una implementación en Go puro (sin CGO). Esto evita depender de un compilador C en la máquina de build y produce un binario estático completamente portable. GORM (`gorm.io/gorm`) actúa como ORM: abstrae el SQL, mapea structs a filas y maneja migraciones con `AutoMigrate`.
 
-**Database location:** `~/.config/vext/vext.db` (Linux/macOS) · `%AppData%\vext\vext.db` (Windows)
+**Ubicación del archivo:**
+```
+~/.config/vext/vext.db   (Linux/macOS/Windows — basado en os.UserHomeDir)
+```
 
 ---
 
-## Schema Design Decision: Polymorphic vs. Separate Tables
+## Diseño del Schema: Tabla Polimórfica
 
-Vext needs to store different types of secrets — accounts have `username` + `password`, finance cards have `card_number` + `cvv` + `expiration`, and so on.
+Vext guarda distintos tipos de secretos: cuentas tienen `username` + `password`, tarjetas financieras tienen `card_number` + `cvv` + `expiration`, etc.
 
-Two approaches were considered:
+Dos enfoques fueron considerados:
 
-**Option A — Separate Tables:** One table per secret type (`accounts`, `finance_cards`, etc.). Clean per-type, but requires a schema migration every time a new type is added, and makes cross-type queries (like `vext list`) complex.
+**Opción A — Tablas separadas:** Una tabla por tipo (`accounts`, `finance_cards`, etc.). Limpio por tipo, pero requiere una migración de schema cada vez que se agrega un nuevo tipo, y complica las consultas cruzadas como `vext list`.
 
-**Option B — Polymorphic Table with JSON Payload:** A single `secrets` table where each row stores a `type` field and an opaque encrypted blob. The blob contains a JSON object whose shape depends on the type.
+**Opción B — Tabla polimórfica con blob cifrado:** Una sola tabla `secrets` donde cada fila guarda un campo `type` y un blob opaco cifrado. El blob contiene un objeto JSON cuya forma depende del tipo.
 
-**Vext uses Option B.** The database schema never needs to change when new secret types are added. The type system lives entirely in Go code, not in SQL columns.
+**Vext usa la Opción B.** El schema de base de datos nunca cambia cuando se agregan nuevos tipos de secreto. El sistema de tipos vive enteramente en código Go, no en columnas SQL.
 
 ---
 
 ## Schema
 
-The schema is defined as a GORM model struct in `shared/storage/schemas.go` and created via `db.AutoMigrate(&SecretRecord{})`:
+Definido como un struct GORM en `shared/storage/schemas.go`:
 
 ```go
 type SecretRecord struct {
@@ -43,7 +46,7 @@ type SecretRecord struct {
 func (SecretRecord) TableName() string { return "secrets" }
 ```
 
-The equivalent SQL schema is:
+El SQL equivalente:
 
 ```sql
 CREATE TABLE IF NOT EXISTS secrets (
@@ -58,92 +61,128 @@ CREATE TABLE IF NOT EXISTS secrets (
 );
 ```
 
-### Field Reference
+### Referencia de campos
 
-| Field | Type | Description |
+| Campo | Tipo | Descripción |
 |---|---|---|
-| `id` | INTEGER | Internal auto-incrementing primary key |
-| `name` | TEXT | User-facing identifier. e.g. `"github"`, `"visa-debit"`. Must be unique. |
-| `type` | TEXT | Secret type tag. e.g. `"account"`, `"finance"`. Drives deserialization in Go. |
-| `salt` | BLOB | 16 random bytes. Per-record. Used by Argon2id to derive the encryption key. |
-| `nonce` | BLOB | 12 random bytes. Per-record. Used by AES-GCM as the initialization vector. |
-| `encrypted` | BLOB | The AES-GCM ciphertext. Contains the JSON payload + GCM auth tag. |
-| `created_at` | DATETIME | Timestamp of creation. Managed by GORM `autoCreateTime`. |
-| `updated_at` | DATETIME | Timestamp of last modification. Managed by GORM `autoUpdateTime`. |
+| `id` | INTEGER | Clave primaria auto-incremental. Uso interno. |
+| `name` | TEXT | Identificador del usuario. Ej: `"github"`, `"visa-debito"`. Debe ser único. |
+| `type` | TEXT | Tag del tipo de secreto. Ej: `"account"`, `"finance"`. Controla la deserialización en Go. |
+| `salt` | BLOB | 16 bytes aleatorios por registro. Usado por Argon2id para derivar la clave de cifrado. |
+| `nonce` | BLOB | 12 bytes aleatorios por registro. Usado por AES-GCM como vector de inicialización. |
+| `encrypted` | BLOB | El ciphertext de AES-GCM. Contiene el JSON del secreto + el tag de autenticación GCM. |
+| `created_at` | DATETIME | Timestamp de creación. Gestionado automáticamente por GORM. |
+| `updated_at` | DATETIME | Timestamp de última modificación. Gestionado automáticamente por GORM. |
 
 ---
 
-## How the Payload Column Works
+## Repositorio: Operaciones CRUD
 
-The `encrypted` column is the heart of the polymorphic design.
-
-### Writing (`vext add`)
-
-```
-User inputs (username, password)
-        │
-        ▼
-Assembled into AccountSecret struct by Collector
-        │
-        ▼
-Serialized to JSON bytes
-  {"username":"bob","password":"<base64-encoded bytes>"}
-        │
-        ▼
-JSON bytes encrypted with AES-256-GCM
-  → produces salt + nonce + ciphertext
-        │
-        ▼
-Stored: name, type, salt, nonce, encrypted → secrets table
-```
-
-### Reading (`vext get`)
-
-```
-Row fetched from secrets table (name, type, salt, nonce, encrypted)
-        │
-        ▼
-Decrypted with AES-256-GCM (master password + salt + nonce)
-  → produces JSON bytes
-        │
-        ▼
-JSON deserialized into the correct Go struct (based on `type` field)
-        │
-        ▼
-Fields printed to terminal
-```
-
----
-
-## WithRepo Session Pattern
-
-All database access in Vext is wrapped through `storage.WithRepo`:
+El acceso a datos vive en `shared/storage/repository.go`. La interfaz que expone está definida en `secrets/bases.go`:
 
 ```go
-func WithRepo(dbPath string, fn func(*SecretRepository) error) error {
-    db, err := Open(dbPath)
-    if err != nil {
-        return err
-    }
-    defer Close(db)
-    return fn(NewSecretRepository(db))
+type Repository interface {
+    Create(ctx context.Context, secret *Secret, encrypted []byte) error
+    GetByName(ctx context.Context, name string) (*Secret, []byte, error)
+    Update(ctx context.Context, secret *Secret, encrypted []byte) error
+    Delete(ctx context.Context, name string) error
+    ListAll(ctx context.Context) ([]Secret, error)
+    GetAll(ctx context.Context) ([]Credential, error)
 }
 ```
 
-This guarantees that the DB connection is always opened fresh per operation and always closed on completion, regardless of error. No adapter or use case func manages DB lifecycle directly.
+Detalles de cada operación:
+
+- **`Create`** — Inserta un nuevo secreto con su material criptográfico. Retorna `ErrAlreadyExists` si el nombre ya existe (detectado por string inspection del error de SQLite: `"UNIQUE constraint failed"`).
+- **`GetByName`** — Recupera un secreto con su salt, nonce y blob cifrado. Se usa en `vext get` y `vext upd`.
+- **`Update`** — Reemplaza el material criptográfico completo (salt, nonce y encrypted) por nombre. Retorna `ErrSecretNotFound` si el nombre no existe.
+- **`Delete`** — Elimina el registro por nombre. Retorna `ErrSecretNotFound` si no existe.
+- **`ListAll`** — Retorna solo los metadatos (`id`, `name`, `type`, `created_at`, `updated_at`) sin columnas blob. Se usa en `vext list`. La query es: `SELECT id, name, type, created_at, updated_at FROM secrets ORDER BY name asc`.
+- **`GetAll`** — Retorna todos los secretos con su payload cifrado. Se usa en `vext export`.
+
+Todas las operaciones reciben un `context.Context` para soporte de cancelación.
 
 ---
 
-## Payload Schemas (Per Type)
+## Ciclo de Vida de la Conexión
 
-These are the JSON structures that get encrypted and stored in `encrypted`. The database itself never sees these — it only stores the encrypted bytes.
+La conexión a la base de datos se abre una vez al inicio de la aplicación y se cierra cuando el proceso termina. Esto ocurre en `cmd/adapters/bootstrap.go`:
+
+```go
+func Build() (App, func(), error) {
+    dbPath := storage.DBPath()
+
+    db, err := storage.Open(dbPath)
+    if err != nil {
+        return App{}, nil, fmt.Errorf("open database: %w", err)
+    }
+
+    return App{
+        DBPath:     dbPath,
+        Repository: storage.NewSecretRepository(db),
+        Encryptor:  cryptors.NewAESGCMEncryptor(cryptors.DefaultConfig()),
+        Collector:  collectors.NewCollector(collectors.NewPrompter()),
+    },
+    func() { _ = storage.Close(db) }, // cleanup: cierra la BD al salir
+    nil
+}
+```
+
+`Build()` retorna una función de cleanup que `cmd/root.go` registra con `defer cleanup()`. Todos los subcomandos reciben el mismo `App` con el repositorio ya construido.
+
+---
+
+## Inicialización: `vext init`
+
+El comando `vext init` usa un `Initialiser` (`shared/storage/initialiser.go`) que:
+
+1. Crea el directorio de configuración con permisos `0700` (solo el propietario puede leer/escribir).
+2. Abre la base de datos (la crea si no existe).
+3. Ejecuta `AutoMigrate` para crear las tablas faltantes.
+
+```go
+func (i *Initialiser) Setup(ctx context.Context) (*gorm.DB, error) {
+    if err := os.MkdirAll(filepath.Dir(i.dbPath), 0700); err != nil {
+        return nil, fmt.Errorf("could not create config directory: %w", err)
+    }
+    db, err := Open(i.dbPath)
+    if err != nil {
+        return nil, err
+    }
+    if err := Migrate(db); err != nil {
+        Close(db)
+        return nil, err
+    }
+    return db, nil
+}
+```
+
+---
+
+## Migraciones
+
+Vext usa `AutoMigrate` de GORM, ejecutado en cada `vext init`. Es seguro e idempotente: solo crea tablas faltantes o agrega columnas nuevas. Nunca elimina columnas ni cambia las existentes.
+
+```go
+func Migrate(db *gorm.DB) error {
+    return db.AutoMigrate(&SecretRecord{})
+}
+```
+
+Para agregar una nueva columna en el futuro basta con agregarla al struct `SecretRecord` con el tag GORM apropiado.
+
+---
+
+## Payloads por Tipo
+
+Estas son las estructuras JSON que se cifran y se guardan en `encrypted`. La base de datos nunca ve estos campos directamente — solo almacena los bytes cifrados.
 
 ### type: `"account"`
 
 ```json
 {
   "username": "bob@example.com",
-  "password": "<base64-encoded bytes>"
+  "password": "<bytes en base64>"
 }
 ```
 
@@ -152,47 +191,25 @@ These are the JSON structures that get encrypted and stored in `encrypted`. The 
 ```json
 {
   "card_number": "4111111111111111",
-  "security_code": "<base64>",
-  "card_pin": "<base64>",
+  "security_code": "<bytes en base64>",
+  "card_pin": "<bytes en base64>",
   "expiration_month": 12,
   "expiration_year": 2027,
   "bank_username": "bob",
-  "bank_password": "<base64>",
-  "bank_virtual_key": "<base64>",
+  "bank_password": "<bytes en base64>",
+  "bank_virtual_key": "<bytes en base64>",
   "bank_cellphone": "+1234567890"
 }
 ```
 
-### type: `"note"` *(Phase 2)*
-
-```json
-{
-  "content": "Server root password is stored in the safe at office."
-}
-```
-
-Adding a new type requires only: defining a new Go struct under `secrets/`, adding a new `case` to `Collector.Payload()` and the get adapter dispatch, and documenting it here. **The SQL schema does not change.**
+Agregar un nuevo tipo solo requiere: definir un nuevo struct Go en `secrets/`, agregar un nuevo `case` al `Collector.Payload()` y al dispatch de `vext get`, y documentarlo aquí. **El schema SQL no cambia.**
 
 ---
 
-## Migrations
+## Cosas a Tener en Cuenta
 
-Vext uses GORM's `AutoMigrate` on every `vext init` call. This is safe and idempotent — it only creates missing tables or adds missing columns. It never drops columns or changes existing ones.
+**Archivos WAL y journal:** SQLite puede crear archivos `-wal` o `-journal` junto a `vext.db` durante escrituras. Son temporales. Dado que Vext cifra antes de escribir, estos archivos nunca contendrán secretos en texto plano — solo blobs cifrados.
 
-```go
-func Migrate(db *gorm.DB) error {
-    return db.AutoMigrate(&SecretRecord{})
-}
-```
+**Permisos del directorio:** El directorio `~/.config/vext/` se crea con permisos `0700`. Esto previene que otros usuarios de la misma máquina lean el archivo de base de datos.
 
-For future schema changes (e.g. adding a new column), adding the field to `SecretRecord` with the appropriate GORM tag is sufficient — `AutoMigrate` handles the rest.
-
----
-
-## SQLite Gotchas to Watch
-
-**WAL and journal files:** SQLite may create `-wal` or `-journal` files alongside `vext.db` during writes. These are temporary. Because Vext encrypts before writing, these files will never contain plaintext secrets — only encrypted blobs.
-
-**File permissions:** After `vext init`, the database file is explicitly set to `0600` (owner read/write only). This prevents other users on the same machine from reading the file even if they obtain the path.
-
-**Unique constraint errors:** GORM does not wrap SQLite's unique constraint violation in a typed error. `SecretRepository.Create` detects it via string inspection (`"UNIQUE constraint failed"`) and maps it to `sentinel.ErrAlreadyExists`.
+**Errores de constraint único:** GORM no envuelve la violación de constraint único de SQLite en un error tipado. `SecretRepository.Create` lo detecta via inspección de string (`"UNIQUE constraint failed"`) y lo mapea a `secrets.ErrAlreadyExists`.

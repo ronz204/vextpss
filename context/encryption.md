@@ -1,139 +1,168 @@
-# Vext — Encryption & Security Model
+# Vext — Cifrado y Modelo de Seguridad
 
-## Guiding Principle
+## Principio Guía
 
-Vext is designed so that **even if someone steals your database file, they gain nothing useful**. The encrypted blobs in SQLite are meaningless without the master password, and brute-forcing the master password is computationally infeasible by design.
-
----
-
-## The Two-Stage Security Model
-
-Every secret stored in Vext goes through two distinct cryptographic operations: **key derivation** and **authenticated encryption**. These are separate concerns solved by separate algorithms.
-
-```
-Master Password  ──►  [ Argon2id KDF ]  ──►  32-byte Encryption Key
-                             ▲
-                           Salt (random, stored in DB)
-
-Plaintext Secret ──►  [ AES-256-GCM ]   ──►  Encrypted Blob
-                             ▲
-                           Key (from above) + Nonce (random, stored in DB)
-```
-
-Both stages are implemented in `shared/cryptors/aes_gcm.go` via `AESGCMEncryptor`.
+Vext está diseñado para que **incluso si alguien roba tu archivo de base de datos, no obtenga nada útil**. Los blobs cifrados en SQLite no tienen sentido sin la contraseña maestra, y forzarla por fuerza bruta es computacionalmente inviable por diseño.
 
 ---
 
-## Stage 1: Key Derivation — Argon2id
+## El Modelo de Dos Etapas
 
-### Why Not Use the Password Directly?
+Cada secreto guardado en Vext pasa por dos operaciones criptográficas distintas: **derivación de clave** y **cifrado autenticado**. Son responsabilidades separadas resueltas por algoritmos separados.
 
-A master password like `MyCat2019!` is a human-friendly string with far less entropy than what encryption algorithms expect. Feeding it directly into AES would be insecure.
+```
+Contraseña maestra  ──►  [ Argon2id KDF ]  ──►  Clave de 32 bytes
+                                ▲
+                          Salt (aleatorio, guardado en BD)
 
-A Key Derivation Function (KDF) solves this by transforming any password into a key of exact length and high entropy.
+Secreto en texto plano  ──►  [ AES-256-GCM ]  ──►  Blob cifrado
+                                    ▲
+                         Clave (de arriba) + Nonce (aleatorio, guardado en BD)
+```
 
-### Why Argon2id?
+Ambas etapas están implementadas en `shared/cryptors/aes_gcm.go` a través de `AESGCMEncryptor`.
 
-Argon2id won the Password Hashing Competition in 2015 and is the current industry recommendation for password hashing and KDFs. Its key advantage is that it is deliberately **expensive in both time and memory**, which directly attacks the economics of brute-force attempts.
+---
 
-- A GPU farm that could crack a naive hash in hours would take **centuries** against a properly tuned Argon2id configuration.
-- The `id` variant is a hybrid of Argon2i (side-channel resistant) and Argon2d (GPU-resistant), making it the safest general-purpose choice.
+## Etapa 1: Derivación de Clave — Argon2id
 
-### Parameters (DefaultConfig)
+### ¿Por qué no usar la contraseña directamente?
 
-Defined in `shared/cryptors/aes_config.go`:
+Una contraseña maestra como `MiGato2019!` es una cadena amigable para humanos con mucho menos entropía de lo que los algoritmos de cifrado esperan. Pasarla directamente a AES sería inseguro.
+
+Una Función de Derivación de Clave (KDF) resuelve esto transformando cualquier contraseña en una clave de longitud exacta y alta entropía.
+
+### ¿Por qué Argon2id?
+
+Argon2id ganó el Password Hashing Competition en 2015 y es la recomendación actual de la industria para hashing de contraseñas y KDFs. Su ventaja principal es que es deliberadamente **costoso tanto en tiempo como en memoria**, lo que ataca directamente la economía de los intentos de fuerza bruta.
+
+- Una granja de GPUs que podría romper un hash simple en horas tardaría **siglos** con una configuración bien ajustada de Argon2id.
+- La variante `id` es un híbrido de Argon2i (resistente a ataques de canal lateral) y Argon2d (resistente a GPUs), lo que la hace la elección más segura para propósito general.
+
+### Configuración (`shared/cryptors/aes_conf.go`)
 
 ```go
-Argon2Config{
-    Time:    3,        // 3 passes
-    Memory:  65536,    // 64 MB of RAM required per attempt
-    Threads: 2,
-    KeyLen:  32,       // 256-bit output key
+func DefaultConfig() AESGCMConfig {
+    return AESGCMConfig{
+        Argon: Argon2Config{
+            Time:    3,          // 3 pasadas
+            Memory:  64 * 1024,  // 64 MB de RAM requeridos por intento
+            Threads: 2,
+            KeyLen:  32,         // Clave de salida de 256 bits
+        },
+        SaltLen:  16, // 16 bytes
+        NonceLen: 12, // 12 bytes (estándar para GCM)
+    }
 }
 ```
 
-### The Salt
+### El Salt
 
-Each record in the database has its own randomly generated 16-byte Salt. The Salt is not secret — it is stored in plaintext in the database. Its purpose is to ensure that:
+Cada registro en la base de datos tiene su propio Salt de 16 bytes generado aleatoriamente. El Salt **no es secreto** — se guarda en texto plano en la BD. Su función es:
 
-1. The same master password + different salt = a completely different derived key.
-2. Two records encrypted with the same master password produce different keys.
-3. Precomputed attack tables (rainbow tables) are useless.
-
----
-
-## Stage 2: Authenticated Encryption — AES-256-GCM
-
-### Why Authenticated Encryption?
-
-Standard encryption (like AES in CBC mode) only provides **confidentiality** — it hides the content. But it doesn't detect if someone has tampered with the encrypted bytes.
-
-AES-GCM (Galois/Counter Mode) provides **Authenticated Encryption with Associated Data (AEAD)**:
-- It encrypts the data (confidentiality).
-- It generates a short authentication tag that acts as a fingerprint of the ciphertext.
-- On decryption, if a single byte has been altered — by an attacker or by data corruption — the authentication tag check fails and decryption is refused entirely.
-
-This means the database is **tamper-evident**: any modification is detected.
-
-### The Nonce
-
-Each record also has its own randomly generated 12-byte Nonce (Number Used Once). Like the Salt, the Nonce is not secret and is stored in the database.
-
-The critical rule: **a Nonce must never be reused with the same key**. Nonce reuse in GCM can catastrophically break confidentiality. By generating a fresh random Nonce per record, this risk is eliminated.
-
-### What Gets Encrypted?
-
-The entire secret payload is serialized to JSON first, then the complete JSON string is encrypted as a single blob. The encryption layer is agnostic to what kind of data it's protecting — it just sees bytes.
+1. La misma contraseña maestra + diferente salt = clave derivada completamente diferente.
+2. Dos registros cifrados con la misma contraseña maestra producen claves distintas.
+3. Las tablas precomputadas de ataque (rainbow tables) son inútiles.
 
 ---
 
-## What Happens with a Wrong Master Password?
+## Etapa 2: Cifrado Autenticado — AES-256-GCM
 
-When `vext get` is called with the wrong master password:
+### ¿Por qué cifrado autenticado?
 
-1. Argon2id derives a **different** 32-byte key (because a different password was used as input).
-2. AES-GCM attempts to decrypt using this wrong key.
-3. The authentication tag check fails immediately.
-4. Vext returns `sentinel.ErrDecryptionFailed`, which the adapter maps to: `wrong master password or data corrupted`.
+El cifrado estándar (como AES en modo CBC) solo provee **confidencialidad** — oculta el contenido. Pero no detecta si alguien manipuló los bytes cifrados.
 
-The user learns nothing about whether the password was close or what the actual data looks like. This is intentional.
+AES-GCM (Galois/Counter Mode) provee **Cifrado Autenticado con Datos Asociados (AEAD)**:
+- Cifra los datos (confidencialidad).
+- Genera un tag de autenticación corto que actúa como huella digital del ciphertext.
+- Al descifrar, si un solo byte fue alterado — por un atacante o por corrupción — la verificación del tag falla y el descifrado se rechaza por completo.
+
+Esto hace que la base de datos sea **a prueba de manipulaciones**: cualquier modificación es detectada.
+
+### El Nonce
+
+Cada registro tiene su propio Nonce de 12 bytes generado aleatoriamente. Como el Salt, no es secreto y se guarda en la BD.
+
+La regla crítica: **un Nonce nunca debe reutilizarse con la misma clave**. La reutilización del Nonce en GCM puede romper catastróficamente la confidencialidad. Al generar un Nonce aleatorio fresco por registro, este riesgo se elimina.
+
+### ¿Qué se cifra?
+
+El payload completo del secreto se serializa a JSON primero, luego el string JSON completo se cifra como un blob único. La capa de cifrado es agnóstica a qué tipo de datos está protegiendo — solo ve bytes.
 
 ---
 
-## Memory Safety
+## Implementación (`shared/cryptors/aes_gcm.go`)
 
-Cryptographic keys and plaintext secrets exist in RAM only for the duration of an operation. Immediately after encryption or decryption completes, every `[]byte` holding sensitive data is overwritten with zeros by calling `memory.Cleaner(b)`.
-
-Go's garbage collector does not guarantee when memory is reclaimed or whether it can be read by another process in the interim. Zeroing manually is the only reliable mitigation.
-
-The pattern used throughout the codebase:
+### Cifrado
 
 ```go
-key := deriveKey(password, salt)
-defer memory.Cleaner(key)  // zeroed on function return, regardless of error path
+func (e *AESGCMEncryptor) Encrypt(_ context.Context, plaintext, password []byte) (salt, nonce, ciphertext []byte, err error) {
+    // 1. Generar salt aleatorio de 16 bytes
+    salt, err = e.randomBytes(e.config.SaltLen)
+
+    // 2. Derivar clave de 256 bits con Argon2id
+    key := e.deriveKey(password, salt)
+    defer memory.Cleaner(key) // Limpiar clave después de usar
+
+    // 3. Generar nonce aleatorio de 12 bytes
+    nonce, err = e.randomBytes(e.config.NonceLen)
+
+    // 4. Crear cipher AES-256-GCM y cifrar
+    gcm, err := e.newGCM(key)
+    ciphertext = gcm.Seal(nil, nonce, plaintext, nil)
+
+    return salt, nonce, ciphertext, nil
+}
+```
+
+### Descifrado
+
+```go
+func (e *AESGCMEncryptor) Decrypt(_ context.Context, password, salt, nonce, ciphertext []byte) ([]byte, error) {
+    // 1. Validar longitudes de salt y nonce (previene manipulación)
+    if len(salt) != e.config.SaltLen || len(nonce) != e.config.NonceLen {
+        return nil, secrets.ErrDecryptionFailed
+    }
+
+    // 2. Derivar la misma clave con el salt guardado
+    key := e.deriveKey(password, salt)
+    defer memory.Cleaner(key) // Limpiar clave después de usar
+
+    // 3. Descifrar (GCM verifica el tag de autenticación automáticamente)
+    plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+    if err != nil {
+        return nil, secrets.ErrDecryptionFailed // Error genérico intencional
+    }
+
+    return plaintext, nil
+}
 ```
 
 ---
 
-## What Vext Does NOT Do (Intentional Scope Limits)
+## Limpieza de Memoria
 
-| Feature | Status | Reason |
-|---|---|---|
-| Cloud sync | Never | Defeats the local-first model |
-| Biometric unlock | Not in scope | OS-level complexity |
-| Master password recovery | Never | No recovery = no backdoor |
-| Clipboard integration | Phase 2 | Intentionally deferred |
-| Keyring/OS integration | Phase 2 | Adds complexity |
+Las claves criptográficas y los secretos en texto plano existen en RAM solo durante la duración de una operación. Inmediatamente después de que el cifrado o descifrado termina, cada `[]byte` que contiene datos sensibles se sobrescribe con ceros llamando a `memory.Cleaner(b)` (`shared/memory/cleaner.go`).
 
----
+El garbage collector de Go no garantiza cuándo la memoria es recuperada ni si puede ser leída por otro proceso en el ínterin. Limpiar manualmente es la única mitigación confiable.
 
-## Threat Model
+El patrón usado en todo el código:
 
-| Threat | Mitigated? | How |
-|---|---|---|
-| Someone reads your `vext.db` file | ✅ Yes | All secrets are AES-GCM encrypted |
-| Someone modifies your `vext.db` | ✅ Yes | GCM authentication tag detects tampering |
-| Brute force against the database | ✅ Yes | Argon2id makes each attempt slow and memory-intensive |
-| Shell history captures your passwords | ✅ Yes | Secrets are never passed as flags or arguments |
-| Someone watches your screen during `vext get` | ❌ No | Plaintext is displayed; physical security is user's responsibility |
-| Someone with terminal access runs `vext rm` | ⚠️ Partial | Deletion prompts for confirmation but does not require master password |
+```go
+key := e.deriveKey(password, salt)
+defer memory.Cleaner(key) // Cero en el retorno de la función, sin importar el path de error
+```
+
+Esto aplica a: contraseñas maestras, claves derivadas, payloads en texto plano, y buffers temporales con datos sensibles.
+
+
+## ¿Qué pasa con una Contraseña Maestra Incorrecta?
+
+Cuando `vext get` se llama con la contraseña incorrecta:
+
+1. Argon2id deriva una clave de 32 bytes **diferente** (porque se usó una contraseña diferente).
+2. AES-GCM intenta descifrar con esta clave incorrecta.
+3. La verificación del tag de autenticación falla inmediatamente.
+4. Vext retorna `secrets.ErrDecryptionFailed`, que el adaptador mapea a: `"wrong master password or data corrupted"`.
+
+El usuario no obtiene información sobre si la contraseña estuvo cerca o cómo se ven los datos reales. Esto es intencional.
