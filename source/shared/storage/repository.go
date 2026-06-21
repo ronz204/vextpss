@@ -57,7 +57,7 @@ func (r *SecretRepository) ListAll(ctx context.Context) ([]secrets.Secret, error
 	out := make([]secrets.Secret, len(records))
 	for i, rec := range records {
 		out[i] = secrets.Secret{
-			ID:        secrets.SecretID(rec.ID),
+			ID:        rec.ID,
 			Name:      rec.Name,
 			Type:      rec.Type,
 			CreatedAt: rec.CreatedAt,
@@ -81,7 +81,7 @@ func (r *SecretRepository) GetAll(ctx context.Context) ([]secrets.Credential, er
 	for i, rec := range records {
 		out[i] = secrets.Credential{
 			Secret: secrets.Secret{
-				ID:        secrets.SecretID(rec.ID),
+				ID:        rec.ID,
 				Name:      rec.Name,
 				Type:      rec.Type,
 				Salt:      rec.Salt,
@@ -110,7 +110,7 @@ func (r *SecretRepository) GetByName(ctx context.Context, name string) (*secrets
 	}
 
 	secret := &secrets.Secret{
-		ID:        secrets.SecretID(record.ID),
+		ID:        record.ID,
 		Name:      record.Name,
 		Type:      record.Type,
 		Salt:      record.Salt,

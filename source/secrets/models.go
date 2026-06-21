@@ -2,10 +2,8 @@ package secrets
 
 import "time"
 
-type SecretID int64
-
 type Secret struct {
-	ID        SecretID
+	ID        int64
 	Name      string
 	Type      string
 	Salt      []byte
