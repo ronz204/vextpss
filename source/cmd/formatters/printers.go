@@ -8,9 +8,6 @@ import (
 )
 
 func PrintSecret(name, secretType string, payload []byte) {
-	fmt.Printf("Name: %s\n", name)
-	fmt.Printf("Type: %s\n", secretType)
-
 	switch secretType {
 	case secrets.TypeAccount:
 		printAccount(payload)
