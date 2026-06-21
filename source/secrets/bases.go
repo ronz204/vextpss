@@ -18,9 +18,3 @@ type Encryptor interface {
 	Encrypt(ctx context.Context, plaintext, password []byte) (salt, nonce, ciphertext []byte, err error)
 	Decrypt(ctx context.Context, password, salt, nonce, ciphertext []byte) ([]byte, error)
 }
-
-type Collector interface {
-	Payload(secretType string) ([]byte, error)
-	Confirm(prompt string) (bool, error)
-	Master() ([]byte, error)
-}
