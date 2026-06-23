@@ -1,4 +1,4 @@
-package adapters
+package cmd
 
 import (
 	"context"
@@ -13,21 +13,20 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-func RmCmd(app *App) *cobra.Command {
-	return &cobra.Command{
+func RmCmd() *cobra.Command {
+	c := &cobra.Command{
 		Use:   "rm <name>",
 		Short: "Permanently delete a stored secret",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runRm(args[0], *app)
-		},
 	}
+	c.RunE = withDeps(func(ctx context.Context, d Deps, args []string) error {
+		return runRm(ctx, d, args[0])
+	})
+	return c
 }
 
-func runRm(name string, app App) error {
-	ctx := context.Background()
-
-	ok, err := app.Collector.Confirm(fmt.Sprintf("Delete %q? This cannot be undone", name))
+func runRm(ctx context.Context, d Deps, name string) error {
+	ok, err := d.Collect.Confirm(fmt.Sprintf("Delete %q? This cannot be undone", name))
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
@@ -37,14 +36,14 @@ func runRm(name string, app App) error {
 		return nil
 	}
 
-	masterPassword, err := app.Collector.Master()
+	masterPassword, err := d.Collect.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	if err := funcs.NewDeleteSecretFunc(app.Repository, app.Encryptor).Run(ctx, funcs.DeleteSecretDto{
+	if err := funcs.NewDeleteSecretFunc(d.Repo, d.Enc).Run(ctx, funcs.DeleteSecretDto{
 		Name:           name,
 		MasterPassword: masterPassword,
 	}); err != nil {

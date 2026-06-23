@@ -1,4 +1,4 @@
-package adapters
+package cmd
 
 import (
 	"context"
@@ -13,40 +13,36 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-func AddCmd(app *App) *cobra.Command {
+func AddCmd() *cobra.Command {
 	var secretType string
-
 	c := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Store a new secret",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runAdd(args[0], secretType, *app)
-		},
 	}
-
+	c.RunE = withDeps(func(ctx context.Context, d Deps, args []string) error {
+		return runAdd(ctx, d, args[0], secretType)
+	})
 	c.Flags().StringVarP(&secretType, "type", "t", secrets.TypeAccount, `secret type: "account" or "finance"`)
 	return c
 }
 
-func runAdd(name, secretType string, app App) error {
-	ctx := context.Background()
-
-	plaintext, err := app.Collector.Payload(secretType)
+func runAdd(ctx context.Context, d Deps, name, secretType string) error {
+	plaintext, err := d.Collect.Payload(secretType)
 	defer memory.Cleaner(plaintext)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	masterPassword, err := app.Collector.Master()
+	masterPassword, err := d.Collect.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	if err := funcs.NewCreateSecretFunc(app.Repository, app.Encryptor).Run(ctx, funcs.CreateSecretDto{
+	if err := funcs.NewCreateSecretFunc(d.Repo, d.Enc).Run(ctx, funcs.CreateSecretDto{
 		Name:           name,
 		Type:           secretType,
 		Plaintext:      plaintext,

@@ -1,4 +1,4 @@
-package adapters
+package cmd
 
 import (
 	"context"
@@ -10,21 +10,20 @@ import (
 	"vextpss/source/funcs"
 )
 
-func ListCmd(app *App) *cobra.Command {
-	return &cobra.Command{
+func ListCmd() *cobra.Command {
+	c := &cobra.Command{
 		Use:   "list",
 		Short: "List all stored secrets",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runList(*app)
-		},
 	}
+	c.RunE = withDeps(func(ctx context.Context, d Deps, _ []string) error {
+		return runList(ctx, d)
+	})
+	return c
 }
 
-func runList(app App) error {
-	ctx := context.Background()
-
-	all, err := funcs.NewRetrieveSecretsFunc(app.Repository).Run(ctx)
+func runList(ctx context.Context, d Deps) error {
+	all, err := funcs.NewRetrieveSecretsFunc(d.Repo).Run(ctx)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err

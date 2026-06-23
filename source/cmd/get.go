@@ -1,4 +1,4 @@
-package adapters
+package cmd
 
 import (
 	"context"
@@ -13,28 +13,27 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-func GetCmd(app *App) *cobra.Command {
-	return &cobra.Command{
+func GetCmd() *cobra.Command {
+	c := &cobra.Command{
 		Use:   "get <name>",
 		Short: "Retrieve and display a stored secret",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runGet(args[0], *app)
-		},
 	}
+	c.RunE = withDeps(func(ctx context.Context, d Deps, args []string) error {
+		return runGet(ctx, d, args[0])
+	})
+	return c
 }
 
-func runGet(name string, app App) error {
-	ctx := context.Background()
-
-	masterPassword, err := app.Collector.Master()
+func runGet(ctx context.Context, d Deps, name string) error {
+	masterPassword, err := d.Collect.Master()
 	defer memory.Cleaner(masterPassword)
 	if err != nil {
 		formatters.Error(err.Error())
 		return err
 	}
 
-	result, err := funcs.NewObtainSecretFunc(app.Repository, app.Encryptor).Run(ctx, funcs.ObtainSecretDto{
+	result, err := funcs.NewObtainSecretFunc(d.Repo, d.Enc).Run(ctx, funcs.ObtainSecretDto{
 		Name:           name,
 		MasterPassword: masterPassword,
 	})

@@ -1,4 +1,4 @@
-package adapters
+package cmd
 
 import (
 	"context"
