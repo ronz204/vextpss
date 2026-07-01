@@ -1,4 +1,4 @@
-package passgen
+package aesgcm
 
 type Argon2Config struct {
 	Time    uint32

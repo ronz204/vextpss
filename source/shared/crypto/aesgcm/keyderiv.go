@@ -1,4 +1,4 @@
-package passgen
+package aesgcm
 
 import (
 	"crypto/rand"
