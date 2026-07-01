@@ -1,1 +1,1 @@
-### Vextpss
+### Vextpss | Local First Password Manager
