@@ -13,6 +13,12 @@ type AESGCMConfig struct {
 	NonceLen int
 }
 
+type AESGCMPayload struct {
+	Salt       []byte
+	Nonce      []byte
+	Ciphertext []byte
+}
+
 func DefaultConfig() AESGCMConfig {
 	return AESGCMConfig{
 		Argon: Argon2Config{

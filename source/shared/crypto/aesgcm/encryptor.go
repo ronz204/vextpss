@@ -9,12 +9,6 @@ import (
 	"vextpss/source/shared/memory"
 )
 
-type AESGCMPayload struct {
-	Salt       []byte
-	Nonce      []byte
-	Ciphertext []byte
-}
-
 type AESGCMEncryptor struct {
 	config AESGCMConfig
 }
