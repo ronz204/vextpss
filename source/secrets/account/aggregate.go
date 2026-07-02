@@ -1,6 +1,6 @@
-package secrets
+package account
 
-import "fmt"
+import "vextpss/source/secrets"
 
 type Account struct {
 	Username string `json:"username"`
@@ -13,15 +13,15 @@ func NewAccount(username string, password []byte) (Account, error) {
 }
 
 func (a Account) Display() string {
-	return TypeAccount
+	return secrets.TypeAccount
 }
 
 func (a Account) Validate() error {
 	if a.Username == "" {
-		return fmt.Errorf("username is required")
+		return ErrUsernameRequired
 	}
 	if a.Password == nil {
-		return fmt.Errorf("password is required")
+		return ErrPasswordRequired
 	}
 	return nil
 }
