@@ -1,17 +1,12 @@
 package secrets
 
-import (
-	"errors"
-	"time"
-)
+import "time"
 
 type Secret struct {
 	ID        int64
 	Name      string
 	Type      string
-	Salt      []byte
-	Nonce     []byte
-	Payload   []byte
+	Encrypted Encrypted
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -20,5 +15,3 @@ type Payload interface {
 	Display() string
 	Validate() error
 }
-
-var ErrDecryptionFailed = errors.New("wrong password or corrupted data")
