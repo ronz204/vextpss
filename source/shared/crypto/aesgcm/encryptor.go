@@ -2,28 +2,56 @@ package aesgcm
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
+	"fmt"
 
 	"vextpss/source/secrets"
 	"vextpss/source/shared/memory"
 )
 
-type AESGCMEncryptor struct {
-	config AESGCMConfig
+type Encryptor struct {
+	config Config
 }
 
-func NewAESGCMEncryptor(config AESGCMConfig) *AESGCMEncryptor {
-	return &AESGCMEncryptor{config: config}
+func New(config Config) *Encryptor {
+	return &Encryptor{config: config}
 }
 
-func (e *AESGCMEncryptor) Encrypt(_ context.Context, plaintext, password []byte) (*AESGCMPayload, error) {
+func (e *Encryptor) Algorithm() string {
+	return algorithmID
+}
+
+func (e *Encryptor) Encrypt(_ context.Context, plaintext, password []byte) (secrets.Encrypted, error) {
 	salt, err := randomBytes(e.config.SaltLen)
 	if err != nil {
-		return nil, err
+		return secrets.Encrypted{}, err
 	}
 
 	nonce, err := randomBytes(e.config.NonceLen)
+	if err != nil {
+		return secrets.Encrypted{}, err
+	}
+
+	key := deriveKey(password, salt, e.config.Argon)
+	defer memory.Cleaner(key)
+
+	gcm, err := newGCM(key)
+	if err != nil {
+		return secrets.Encrypted{}, err
+	}
+
+	return secrets.Encrypted{
+		Algorithm:  algorithmID,
+		Ciphertext: gcm.Seal(nil, nonce, plaintext, nil),
+		Metadata:   encodeMetadata(salt, nonce),
+	}, nil
+}
+
+func (e *Encryptor) Decrypt(_ context.Context, payload secrets.Encrypted, password []byte) ([]byte, error) {
+	if payload.Algorithm != algorithmID {
+		return nil, fmt.Errorf("aesgcm: unsupported algorithm %q: %w", payload.Algorithm, secrets.ErrUnsupportedAlgorithm)
+	}
+
+	salt, nonce, err := decodeMetadata(payload.Metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -31,40 +59,12 @@ func (e *AESGCMEncryptor) Encrypt(_ context.Context, plaintext, password []byte)
 	key := deriveKey(password, salt, e.config.Argon)
 	defer memory.Cleaner(key)
 
-	block, err := aes.NewCipher(key)
+	gcm, err := newGCM(key)
 	if err != nil {
 		return nil, err
 	}
 
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
-
-	return &AESGCMPayload{
-		Salt:       salt,
-		Nonce:      nonce,
-		Ciphertext: ciphertext,
-	}, nil
-}
-
-func (e *AESGCMEncryptor) Decrypt(_ context.Context, data *AESGCMPayload, password []byte) ([]byte, error) {
-	key := deriveKey(password, data.Salt, e.config.Argon)
-	defer memory.Cleaner(key)
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	plaintext, err := gcm.Open(nil, data.Nonce, data.Ciphertext, nil)
+	plaintext, err := gcm.Open(nil, nonce, payload.Ciphertext, nil)
 	if err != nil {
 		return nil, secrets.ErrDecryptionFailed
 	}

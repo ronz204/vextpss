@@ -1,5 +1,7 @@
 package aesgcm
 
+const algorithmID = "aes-gcm-argon2id"
+
 type Argon2Config struct {
 	Time    uint32
 	Memory  uint32
@@ -7,20 +9,14 @@ type Argon2Config struct {
 	KeyLen  uint32
 }
 
-type AESGCMConfig struct {
+type Config struct {
 	Argon    Argon2Config
 	SaltLen  int
 	NonceLen int
 }
 
-type AESGCMPayload struct {
-	Salt       []byte
-	Nonce      []byte
-	Ciphertext []byte
-}
-
-func DefaultConfig() AESGCMConfig {
-	return AESGCMConfig{
+func DefaultConfig() Config {
+	return Config{
 		Argon: Argon2Config{
 			Time:    3,
 			Memory:  64 * 1024,
