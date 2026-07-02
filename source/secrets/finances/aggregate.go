@@ -1,4 +1,6 @@
-package secrets
+package finances
+
+import "vextpss/source/secrets"
 
 type Finance struct {
 	Card   Card   `json:"card"`
@@ -10,7 +12,7 @@ func NewFinance(card Card, mobile Mobile) Finance {
 }
 
 func (f Finance) Display() string {
-	return TypeFinance
+	return secrets.TypeFinance
 }
 
 func (f Finance) Validate() error {

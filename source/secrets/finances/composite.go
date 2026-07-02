@@ -1,6 +1,4 @@
-package secrets
-
-import "fmt"
+package finances
 
 type Card struct {
 	Pin             []byte `json:"pin"`
@@ -17,19 +15,19 @@ func NewCard(number string, pin, code []byte, expMonth, expYear int) (Card, erro
 
 func (c Card) Validate() error {
 	if c.Number == "" {
-		return fmt.Errorf("card number is required")
+		return ErrCardNumberRequired
 	}
 	if c.Pin == nil {
-		return fmt.Errorf("card pin is required")
+		return ErrCardPinRequired
 	}
 	if c.SecurityCode == nil {
-		return fmt.Errorf("card security code is required")
+		return ErrCardSecurityCodeRequired
 	}
 	if c.ExpirationMonth < 1 || c.ExpirationMonth > 12 {
-		return fmt.Errorf("card expiration month must be between 1 and 12")
+		return ErrCardExpirationMonthInvalid
 	}
 	if c.ExpirationYear < 1 {
-		return fmt.Errorf("card expiration year is required")
+		return ErrCardExpirationYearRequired
 	}
 	return nil
 }
@@ -48,16 +46,16 @@ func NewMobile(username string, password, virtualKey []byte, cellphone string) (
 
 func (m Mobile) Validate() error {
 	if m.Username == "" {
-		return fmt.Errorf("mobile username is required")
+		return ErrMobileUsernameRequired
 	}
 	if m.Password == nil {
-		return fmt.Errorf("mobile password is required")
+		return ErrMobilePasswordRequired
 	}
 	if m.VirtualKey == nil {
-		return fmt.Errorf("mobile virtual key is required")
+		return ErrMobileVirtualKeyRequired
 	}
 	if m.Cellphone == "" {
-		return fmt.Errorf("mobile cellphone is required")
+		return ErrMobileCellphoneRequired
 	}
 	return nil
 }
