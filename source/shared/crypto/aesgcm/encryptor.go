@@ -8,6 +8,8 @@ import (
 	"vextpss/source/shared/memory"
 )
 
+var _ secrets.Encryptor = (*Encryptor)(nil)
+
 type Encryptor struct {
 	config Config
 }
