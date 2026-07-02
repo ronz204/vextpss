@@ -4,7 +4,7 @@
 
 Vext se apoya en un puñado de ideas de criptografía y diseño de software que, si no se entienden, hacen que el resto del proyecto parezca magia (o peor, arbitrario). Este documento explica esas ideas desde cero: qué problema resuelven, por qué se eligió esa solución y no otra, y cómo encajan entre sí.
 
-Es teoría, pero con ejemplos concretos. Los bloques de código que vas a ver son **ilustrativos** — muestran la idea, no necesariamente la implementación final de Vext (que puede cambiar en el refactor). Si en algún momento el código real diverge de estos ejemplos, gana el código real.
+Los bloques de código que vas a ver son el código real de Vext. Si en algún momento divergen de la implementación actual, gana la implementación actual.
 
 ---
 
@@ -34,7 +34,7 @@ Un par de claves matemáticamente relacionadas: una **pública** (se puede compa
    (cualquiera puede cifrar)                        (solo el dueño puede descifrar)
 ```
 
-Esto resuelve el problema de distribución de claves — no hace falta compartir ningún secreto de antemano — pero tiene un costo: es órdenes de magnitud más lento computacionalmente que el cifrado simétrico. Por eso, en la práctica, el cifrado asimétrico casi nunca se usa para cifrar datos grandes directamente; se usa para intercambiar de forma segura una clave simétrica, y de ahí en adelante se usa esa clave simétrica para todo el trabajo pesado (así funciona, por ejemplo, HTTPS).
+Esto resuelve el problema de distribución de claves, pero tiene un costo: es órdenes de magnitud más lento computacionalmente que el cifrado simétrico. Por eso, en la práctica, el cifrado asimétrico casi nunca se usa para cifrar datos grandes directamente; se usa para intercambiar de forma segura una clave simétrica, y de ahí en adelante se usa esa clave simétrica para todo el trabajo pesado (así funciona, por ejemplo, HTTPS).
 
 ### ¿Y Vext?
 
@@ -79,19 +79,35 @@ Argon2id ganó la Password Hashing Competition en 2015 y hoy es la recomendació
 
 Con una configuración razonable, romper una contraseña maestra bien elegida deja de ser un problema de horas — pasa a ser un problema de siglos.
 
-**Ejemplo ilustrativo de configuración:**
+### Configuración real en Vext
 
 ```go
-// Ejemplo ilustrativo — los valores reales pueden cambiar
-type Argon2Params struct {
-    Time    uint32 // cuántas "pasadas" hace el algoritmo (más = más lento)
-    Memory  uint32 // KB de RAM requeridos por intento (más = más caro paralelizar)
-    Threads uint8  // paralelismo interno permitido
-    KeyLen  uint32 // largo de la clave resultante, en bytes (32 = 256 bits)
+// source/shared/crypto/aesgcm/constants.go
+type Argon2Config struct {
+    Time    uint32 // pasadas del algoritmo (más = más lento)
+    Memory  uint32 // KB de RAM requeridos por intento
+    Threads uint8  // paralelismo interno
+    KeyLen  uint32 // largo de la clave resultante en bytes (32 = 256 bits)
 }
 
-func DeriveKey(password, salt []byte, p Argon2Params) []byte {
-    return argon2.IDKey(password, salt, p.Time, p.Memory, p.Threads, p.KeyLen)
+func DefaultConfig() Config {
+    return Config{
+        Argon: Argon2Config{
+            Time:    3,
+            Memory:  64 * 1024, // 64 MB por intento
+            Threads: 2,
+            KeyLen:  32,
+        },
+        SaltLen:  16,
+        NonceLen: 12,
+    }
+}
+```
+
+```go
+// source/shared/crypto/aesgcm/keyderiv.go
+func deriveKey(password, salt []byte, config Argon2Config) []byte {
+    return argon2.IDKey(password, salt, config.Time, config.Memory, config.Threads, config.KeyLen)
 }
 ```
 
@@ -124,9 +140,9 @@ Vext usa **AES-256-GCM**, que pertenece a la familia AEAD (*Authenticated Encryp
 
 ```
                      ┌─────────────────────────┐
-Texto plano ────────►│                         │───► Ciphertext
+Texto plano ────────►│                         │───► Ciphertext + Tag
                      │      AES-256-GCM        │
-Clave (256 bits) ───►│      (cifrado)          │───► Tag de autenticación
+Clave (256 bits) ───►│      (cifrado)          │
 Nonce ──────────────►│                         │
                      └─────────────────────────┘
 ```
@@ -135,31 +151,71 @@ Al descifrar, el tag se recalcula y se compara contra el guardado:
 
 ```
                      ┌─────────────────────────┐
-Ciphertext ─────────►│                         │
-Tag guardado ───────►│      AES-256-GCM        │───► ¿Tag coincide?
-Clave ──────────────►│      (descifrado)       │       │
-Nonce ──────────────►│                         │       ├── Sí → Texto plano
-                     └─────────────────────────┘       └── No → Error, nada se entrega
+Ciphertext + Tag ───►│                         │
+Clave ──────────────►│      AES-256-GCM        │───► ¿Tag coincide?
+Nonce ──────────────►│      (descifrado)       │       │
+                     └─────────────────────────┘       ├── Sí → Texto plano
+                                                        └── No → ErrDecryptionFailed
 ```
 
-Si un solo byte del ciphertext (o del tag) fue alterado — por un atacante o por corrupción accidental del disco — la verificación falla y el descifrado se **rechaza por completo**. No existe un "descifrado parcial" ni un resultado ambiguo.
+Si un solo byte del ciphertext (o del tag) fue alterado — por un atacante o por corrupción accidental del disco — la verificación falla y el descifrado se **rechaza por completo**.
 
-**Ejemplo ilustrativo:**
+### Implementación real en Vext
 
 ```go
-// Ejemplo ilustrativo — cifrar
-block, _ := aes.NewCipher(key)          // key: 32 bytes (256 bits)
-gcm, _ := cipher.NewGCM(block)
-ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
-// ciphertext ya incluye el tag de autenticación al final
+// source/shared/crypto/aesgcm/encryptor.go
+func (e *Encryptor) Encrypt(_ context.Context, plaintext, password []byte) (secrets.Encrypted, error) {
+    salt, _ := randomBytes(e.config.SaltLen)
+    nonce, _ := randomBytes(e.config.NonceLen)
 
-// Ejemplo ilustrativo — descifrar
-plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-if err != nil {
-    // el tag no coincidió: clave incorrecta o datos manipulados
-    return ErrDecryptionFailed
+    key := deriveKey(password, salt, e.config.Argon)
+    defer memory.Cleaner(key)
+
+    gcm, _ := newGCM(key)
+
+    return secrets.Encrypted{
+        Algorithm:  algorithmID, // "aes-gcm-argon2id"
+        Ciphertext: gcm.Seal(nil, nonce, plaintext, nil),
+        Metadata:   encodeMetadata(salt, nonce),
+    }, nil
+}
+
+func (e *Encryptor) Decrypt(_ context.Context, payload secrets.Encrypted, password []byte) ([]byte, error) {
+    salt, nonce, _ := decodeMetadata(payload.Metadata)
+
+    key := deriveKey(password, salt, e.config.Argon)
+    defer memory.Cleaner(key)
+
+    gcm, _ := newGCM(key)
+
+    plaintext, err := gcm.Open(nil, nonce, payload.Ciphertext, nil)
+    if err != nil {
+        return nil, secrets.ErrDecryptionFailed
+    }
+    return plaintext, nil
 }
 ```
+
+El resultado de cifrar es un `secrets.Encrypted` — un sobre tipado con tres campos: `Algorithm` (qué encryptor produjo este blob), `Ciphertext` (el dato cifrado con el tag incluido), y `Metadata` (salt y nonce empaquetados de forma opaca para el dominio).
+
+### Metadata: cómo viajan salt y nonce
+
+Salt y nonce no se guardan sueltos en `Secret` — viajan dentro de `Encrypted.Metadata` como bytes serializados:
+
+```go
+// source/shared/crypto/aesgcm/metadata.go
+// Formato: [saltLen][salt...][nonceLen][nonce...]
+func encodeMetadata(salt, nonce []byte) []byte {
+    buf := make([]byte, 0, 2+len(salt)+len(nonce))
+    buf = append(buf, byte(len(salt)))
+    buf = append(buf, salt...)
+    buf = append(buf, byte(len(nonce)))
+    buf = append(buf, nonce...)
+    return buf
+}
+```
+
+El dominio nunca interpreta `Metadata` — lo transporta opaco. Solo el paquete `aesgcm` sabe cómo codificarlo y decodificarlo.
 
 ### El Nonce: usar la clave una sola vez, cada vez
 
@@ -167,7 +223,7 @@ GCM depende de un **nonce** ("number used once"): un valor que debe ser único p
 
 La regla no tiene excepciones: **un nonce nunca se repite con la misma clave**. Si eso pasa, las garantías de seguridad de GCM se rompen de forma catastrófica — un atacante que observa dos ciphertexts cifrados con el mismo par clave/nonce puede, en el peor caso, recuperar información sobre el contenido sin conocer la clave.
 
-La mitigación es simple: generar un nonce nuevo y aleatorio en cada cifrado. Con un espacio de valores suficientemente grande (12 bytes = 2⁹⁶ posibilidades), la probabilidad de una colisión accidental es despreciable.
+La mitigación es simple: generar un nonce nuevo y aleatorio en cada cifrado. Con 12 bytes (2⁹⁶ posibilidades), la probabilidad de una colisión accidental es despreciable.
 
 Igual que el salt, el nonce no es secreto — se puede guardar junto al dato cifrado sin problema.
 
@@ -179,23 +235,26 @@ Igual que el salt, el nonce no es secreto — se puede guardar junto al dato cif
 Contraseña maestra ──► [ Argon2id + Salt ] ──► Clave (256 bits)
                                                       │
 Secreto en texto plano ──► [ AES-256-GCM + Nonce + Clave ] ──► Ciphertext + Tag
+                                                      │
+                                          secrets.Encrypted{ Algorithm, Ciphertext, Metadata }
 ```
 
 Son dos algoritmos con responsabilidades distintas — uno convierte una contraseña humana en una clave robusta; el otro usa esa clave para proteger datos de forma verificable — encadenados en serie.
 
 ### ¿Qué pasa con una contraseña incorrecta?
 
-Un detalle de diseño interesante: si alguien escribe la contraseña maestra incorrecta, Argon2id **igual deriva una clave** — simplemente es la clave equivocada, porque partió de una contraseña distinta. Esa clave incorrecta hace que la verificación del tag en GCM falle, y el sistema devuelve un error genérico.
+Un detalle de diseño interesante: si alguien escribe la contraseña maestra incorrecta, Argon2id **igual deriva una clave** — simplemente es la clave equivocada, porque partió de una contraseña distinta. Esa clave incorrecta hace que la verificación del tag en GCM falle, y el sistema devuelve un error genérico:
 
 ```go
-// Ejemplo ilustrativo
-if err != nil {
-    return errors.New("wrong master password or data corrupted")
-    // deliberadamente ambiguo: no distingue entre ambos casos
-}
+// source/secrets/encryptor.go
+var (
+    ErrDecryptionFailed     = errors.New("wrong password or corrupted data")
+    ErrCorruptPayload       = errors.New("payload is corrupt or truncated")
+    ErrUnsupportedAlgorithm = errors.New("unsupported encryption algorithm")
+)
 ```
 
-Esto es intencional. El error no le dice al usuario si la contraseña estuvo "cerca" o muy lejos. Dar más detalle que eso le regalaría información útil a un atacante intentando adivinar por aproximación.
+`ErrDecryptionFailed` es deliberadamente ambiguo: no distingue entre contraseña incorrecta y datos corruptos. Dar más detalle que eso le regalaría información útil a un atacante intentando adivinar por aproximación.
 
 ---
 
@@ -203,78 +262,92 @@ Esto es intencional. El error no le dice al usuario si la contraseña estuvo "ce
 
 Cifrar no termina el trabajo. Mientras el proceso ocurre, hay valores extremadamente sensibles flotando en RAM: la contraseña maestra, la clave derivada, el secreto en texto plano.
 
-El problema es que un lenguaje con garbage collector, como Go, no garantiza *cuándo* esa memoria se libera ni si sigue siendo legible mientras tanto. Si alguien lograra volcar la memoria del proceso en el momento equivocado, esos valores podrían seguir ahí, sin cifrar.
+El problema es que Go, al tener garbage collector, no garantiza *cuándo* esa memoria se libera ni si sigue siendo legible mientras tanto. Si alguien lograra volcar la memoria del proceso en el momento equivocado, esos valores podrían seguir ahí, sin cifrar.
 
 La mitigación: apenas un valor sensible deja de ser necesario, se sobreescribe explícitamente con ceros — sin esperar al garbage collector.
 
 ```go
-// Ejemplo ilustrativo
+// source/shared/memory/sanitize.go
 func Cleaner(b []byte) {
     for i := range b {
         b[i] = 0
     }
 }
-
-func DeriveAndUse(password, salt []byte) {
-    key := DeriveKey(password, salt)
-    defer Cleaner(key) // se limpia sin importar cómo termine la función
-    // ... usar key ...
-}
 ```
 
-No es una protección perfecta — Go no da control total sobre la memoria — pero reduce mucho la ventana de tiempo en la que un secreto vive expuesto.
+Se usa con `defer` sobre la clave derivada, que es el valor más crítico:
+
+```go
+key := deriveKey(password, salt, e.config.Argon)
+defer memory.Cleaner(key) // se limpia sin importar cómo termine la función
+```
+
+No es una protección perfecta — Go no da control total sobre la memoria — pero reduce mucho la ventana de tiempo en la que un secreto vive expuesto. Por eso la convención `[]byte` vs `string` en los payloads también importa: un `[]byte` se puede pasar a `Cleaner`; un `string` en Go es inmutable, no se puede limpiar.
 
 ---
 
 ## Secretos Polimórficos: un solo modelo, muchas formas
 
-Vext necesita guardar tipos de secretos muy distintos: una cuenta online tiene usuario y contraseña; una tarjeta bancaria tiene número, PIN, código de seguridad, vencimiento, y más. Con el tiempo van a aparecer más tipos — notas seguras, claves SSH, lo que sea.
+Vext necesita guardar tipos de secretos muy distintos: una cuenta online tiene usuario y contraseña; una tarjeta bancaria tiene número, PIN, código de seguridad, vencimiento, y más. Con el tiempo van a aparecer más tipos.
 
 La pregunta de diseño: ¿cómo modelás datos con formas tan distintas sin que cada tipo nuevo obligue a rediseñar todo?
 
-La respuesta es **polimorfismo de datos**: todos los secretos comparten el mismo contenedor externo (un nombre, una etiqueta de tipo, y un bloque cifrado), y es solo *adentro* de ese bloque donde la forma cambia según el tipo.
+La respuesta es **polimorfismo de datos**: todos los secretos comparten el mismo contenedor externo (`Secret` con un `Encrypted` opaco), y es solo *adentro* de ese bloque cifrado donde la forma cambia según el tipo.
 
-Así se ve en el código real de Vext. Primero, el catálogo de tipos conocidos:
+El catálogo de tipos conocidos vive en el paquete raíz:
 
 ```go
+// source/secrets/types.go
 const (
     TypeAccount = "account"
     TypeFinance = "finance"
 )
 
-var knownTypes = map[string]bool{
-    TypeAccount: true,
-    TypeFinance: true,
-}
+func IsKnownType(t string) bool { ... }
+```
 
-func IsKnownType(t string) bool {
-    return knownTypes[t]
+Cada tipo tiene su propio subpaquete con un agregado que implementa la interfaz `secrets.Payload`:
+
+```go
+// source/secrets/domain.go
+type Payload interface {
+    Display() string // devuelve el tipo ("account", "finance")
+    Validate() error
 }
 ```
 
-Y después, un struct de payload por cada tipo — cada uno con exactamente los campos que ese tipo necesita, ni uno más:
-
 ```go
-type AccountSecret struct {
+// source/secrets/account/aggregate.go
+type Account struct {
     Username string `json:"username"`
     Password []byte `json:"password"`
 }
 
-type FinanceSecret struct {
-    CardPin         []byte `json:"card_pin"`
-    CardNumber      string `json:"card_number"`
+// source/secrets/finances/aggregate.go
+type Finance struct {
+    Card   Card   `json:"card"`
+    Mobile Mobile `json:"mobile"`
+}
+
+// source/secrets/finances/composite.go
+type Card struct {
+    Pin             []byte `json:"pin"`
+    Number          string `json:"number"`
     SecurityCode    []byte `json:"security_code"`
     ExpirationMonth int    `json:"expiration_month"`
     ExpirationYear  int    `json:"expiration_year"`
-    BankUsername    string `json:"bank_username"`
-    BankPassword    []byte `json:"bank_password"`
-    BankVirtualKey  []byte `json:"bank_virtual_key"`
-    BankCellphone   string `json:"bank_cellphone"`
+}
+
+type Mobile struct {
+    Username   string `json:"username"`
+    Password   []byte `json:"password"`
+    VirtualKey []byte `json:"virtual_key"`
+    Cellphone  string `json:"cellphone"`
 }
 ```
 
-Desde afuera del sistema, no importa si estás manejando una cuenta o una tarjeta — solo manejás "secretos". La responsabilidad de saber qué campos corresponden a cada tipo vive en un solo lugar: el struct de payload correspondiente, seleccionado según el valor de `Type`. Agregar un tipo nuevo es agregar un nuevo struct y una nueva constante — no inventar un sistema paralelo.
+Desde afuera del sistema, no importa si estás manejando una cuenta o una tarjeta — solo manejás `Secret`. La responsabilidad de saber qué campos corresponden a cada tipo vive en un solo lugar: el subpaquete del tipo correspondiente. Agregar un tipo nuevo es agregar un subpaquete nuevo y una constante — no inventar un sistema paralelo.
 
 Esta idea es la que le permite a Vext prometer algo fuerte: el modelo de almacenamiento no cambia aunque el catálogo de tipos de secretos siga creciendo.
 
-> Si querés el detalle completo de cómo está modelado el dominio de secretos — la separación entre metadatos y contenido cifrado, por qué algunos campos son `[]byte` y otros `string`, y cómo se valida un tipo — eso está en `modeling.md`.
+> Si querés el detalle completo de cómo está modelado el dominio — la separación entre `Secret` y `Encrypted`, los sentinels de validación de cada subpaquete, y las reglas para agregar tipos nuevos — eso está en `modeling.md`.
