@@ -1,10 +1,19 @@
 package secrets
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrNotFound      = errors.New("secret not found")
+	ErrAlreadyExists = errors.New("secret already exists")
+)
 
 type Repository interface {
-	Delete(ctx context.Context, name string) error
 	Create(ctx context.Context, secret Secret) error
+	GetByName(ctx context.Context, name string) (Secret, error)
 	Update(ctx context.Context, secret Secret) error
-	ListAll(ctx context.Context) ([]Secret, error)
+	Delete(ctx context.Context, name string) error
+	List(ctx context.Context) ([]Secret, error)
 }
