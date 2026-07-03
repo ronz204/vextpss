@@ -8,9 +8,9 @@ import (
 const dbFileName = "vext.db"
 
 func DefaultDBPath() (string, error) {
-	dir, err := os.UserConfigDir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "vext", dbFileName), nil
+	return filepath.Join(home, ".config", "vext", dbFileName), nil
 }
