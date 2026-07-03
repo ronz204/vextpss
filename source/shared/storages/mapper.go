@@ -1,4 +1,4 @@
-package storage
+package storages
 
 import "vextpss/source/secrets"
 
