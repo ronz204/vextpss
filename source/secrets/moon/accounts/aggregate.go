@@ -1,6 +1,6 @@
 package accounts
 
-import "vextpss/source/secrets"
+import "vextpss/source/secrets/core"
 
 type Account struct {
 	Username string `json:"username"`
@@ -13,7 +13,7 @@ func NewAccount(username string, password []byte) (Account, error) {
 }
 
 func (a Account) Display() string {
-	return secrets.TypeAccount
+	return core.TypeAccount
 }
 
 func (a Account) Validate() error {
