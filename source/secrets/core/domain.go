@@ -1,6 +1,8 @@
-package secrets
+package core
 
-import "time"
+import (
+	"time"
+)
 
 type Secret struct {
 	ID        int64

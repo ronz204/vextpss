@@ -1,4 +1,4 @@
-package secrets
+package core
 
 const (
 	TypeAccount = "account"
