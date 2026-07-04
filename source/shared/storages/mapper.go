@@ -1,8 +1,8 @@
 package storages
 
-import "vextpss/source/secrets"
+import "vextpss/source/secrets/core"
 
-func toRecord(s secrets.Secret) SecretRecord {
+func toRecord(s core.Secret) SecretRecord {
 	return SecretRecord{
 		Name:       s.Name,
 		Type:       s.Type,
@@ -12,12 +12,12 @@ func toRecord(s secrets.Secret) SecretRecord {
 	}
 }
 
-func toSecret(r SecretRecord) secrets.Secret {
-	return secrets.Secret{
+func toSecret(r SecretRecord) core.Secret {
+	return core.Secret{
 		ID:   r.ID,
 		Name: r.Name,
 		Type: r.Type,
-		Encrypted: secrets.Encrypted{
+		Encrypted: core.Encrypted{
 			Algorithm:  r.Algorithm,
 			Ciphertext: r.Ciphertext,
 			Metadata:   r.Metadata,

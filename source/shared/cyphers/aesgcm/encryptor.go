@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"vextpss/source/secrets"
+	"vextpss/source/secrets/core"
 	"vextpss/source/shared/memory"
 )
 
-var _ secrets.Encryptor = (*Encryptor)(nil)
+var _ core.Encryptor = (*Encryptor)(nil)
 
 type Encryptor struct {
 	config Config
@@ -22,15 +22,15 @@ func (e *Encryptor) Algorithm() string {
 	return algorithmID
 }
 
-func (e *Encryptor) Encrypt(_ context.Context, plaintext, password []byte) (secrets.Encrypted, error) {
+func (e *Encryptor) Encrypt(_ context.Context, plaintext, password []byte) (core.Encrypted, error) {
 	salt, err := randomBytes(e.config.SaltLen)
 	if err != nil {
-		return secrets.Encrypted{}, err
+		return core.Encrypted{}, err
 	}
 
 	nonce, err := randomBytes(e.config.NonceLen)
 	if err != nil {
-		return secrets.Encrypted{}, err
+		return core.Encrypted{}, err
 	}
 
 	key := deriveKey(password, salt, e.config.Argon)
@@ -38,19 +38,19 @@ func (e *Encryptor) Encrypt(_ context.Context, plaintext, password []byte) (secr
 
 	gcm, err := newGCM(key)
 	if err != nil {
-		return secrets.Encrypted{}, err
+		return core.Encrypted{}, err
 	}
 
-	return secrets.Encrypted{
+	return core.Encrypted{
 		Algorithm:  algorithmID,
 		Ciphertext: gcm.Seal(nil, nonce, plaintext, nil),
 		Metadata:   encodeMetadata(salt, nonce),
 	}, nil
 }
 
-func (e *Encryptor) Decrypt(_ context.Context, payload secrets.Encrypted, password []byte) ([]byte, error) {
+func (e *Encryptor) Decrypt(_ context.Context, payload core.Encrypted, password []byte) ([]byte, error) {
 	if payload.Algorithm != algorithmID {
-		return nil, fmt.Errorf("aesgcm: unsupported algorithm %q: %w", payload.Algorithm, secrets.ErrUnsupportedAlgorithm)
+		return nil, fmt.Errorf("aesgcm: unsupported algorithm %q: %w", payload.Algorithm, core.ErrUnsupportedAlgorithm)
 	}
 
 	salt, nonce, err := decodeMetadata(payload.Metadata)
@@ -68,7 +68,7 @@ func (e *Encryptor) Decrypt(_ context.Context, payload secrets.Encrypted, passwo
 
 	plaintext, err := gcm.Open(nil, nonce, payload.Ciphertext, nil)
 	if err != nil {
-		return nil, secrets.ErrDecryptionFailed
+		return nil, core.ErrDecryptionFailed
 	}
 
 	return plaintext, nil
