@@ -1,12 +1,12 @@
 package funcs
 
 import (
-	"vextpss/source/secrets"
+	"vextpss/source/secrets/core"
 	"vextpss/source/shared/terminal"
 )
 
 type Deps struct {
-	Repo     secrets.Repository
-	Cryp     secrets.Encryptor
+	Repo     core.Repository
+	Cryp     core.Encryptor
 	Prompter *terminal.Prompter
 }

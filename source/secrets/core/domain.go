@@ -14,6 +14,7 @@ type Secret struct {
 }
 
 type Payload interface {
-	Display() string
+	Type() string
+	Display()
 	Validate() error
 }
