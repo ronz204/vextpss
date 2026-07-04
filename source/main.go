@@ -9,7 +9,8 @@ import (
 	"vextpss/source/funcs/addsecret"
 	"vextpss/source/funcs/getsecrets"
 	"vextpss/source/funcs/listsecrets"
-	"vextpss/source/shared/crypto/aesgcm"
+	"vextpss/source/funcs/updsecret"
+	"vextpss/source/shared/cyphers/aesgcm"
 	"vextpss/source/shared/storages"
 	"vextpss/source/shared/terminal"
 )
@@ -46,6 +47,7 @@ func main() {
 	root.AddCommand(addsecret.NewCommand(deps))
 	root.AddCommand(getsecrets.NewCommand(deps))
 	root.AddCommand(listsecrets.NewCommand(deps))
+	root.AddCommand(updsecret.NewCommand(deps))
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
