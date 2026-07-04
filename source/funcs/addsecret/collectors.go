@@ -4,19 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"vextpss/source/secrets"
+	"vextpss/source/secrets/core"
+	"vextpss/source/secrets/moon/accounts"
+	"vextpss/source/secrets/moon/finances"
 	"vextpss/source/shared/memory"
-	"vextpss/source/shared/payloads/accounts"
-	"vextpss/source/shared/payloads/finances"
 	"vextpss/source/shared/terminal"
 )
-
-type payloadCollector func(*terminal.Prompter) (secrets.Payload, error)
-
-var collectors = map[string]payloadCollector{
-	secrets.TypeAccount: collectAccount,
-	secrets.TypeFinance: collectFinance,
-}
 
 func collect(secretType string, p *terminal.Prompter) (plaintext, master []byte, err error) {
 	fn, ok := collectors[secretType]
@@ -43,7 +36,7 @@ func collect(secretType string, p *terminal.Prompter) (plaintext, master []byte,
 	return plaintext, master, nil
 }
 
-func collectAccount(p *terminal.Prompter) (secrets.Payload, error) {
+func collectAccount(p *terminal.Prompter) (core.Payload, error) {
 	username, err := p.ReadLine("Username")
 	if err != nil {
 		return nil, err
@@ -55,7 +48,7 @@ func collectAccount(p *terminal.Prompter) (secrets.Payload, error) {
 	return accounts.NewAccount(username, password)
 }
 
-func collectFinance(p *terminal.Prompter) (secrets.Payload, error) {
+func collectFinance(p *terminal.Prompter) (core.Payload, error) {
 	cardNumber, err := p.ReadLine("Card number")
 	if err != nil {
 		return nil, err

@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"vextpss/source/funcs"
-	"vextpss/source/secrets"
+	"vextpss/source/secrets/core"
 )
 
 func NewCommand(deps funcs.Deps) *cobra.Command {
@@ -17,6 +17,6 @@ func NewCommand(deps funcs.Deps) *cobra.Command {
 			return run(cmd.Context(), args[0], secretType, deps)
 		},
 	}
-	cmd.Flags().StringP("type", "t", secrets.TypeAccount, "Secret type (account, finance)")
+	cmd.Flags().StringP("type", "t", core.TypeAccount, "Secret type (account, finance)")
 	return cmd
 }

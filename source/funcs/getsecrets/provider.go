@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"vextpss/source/funcs"
+	"vextpss/source/secrets/moon"
 	"vextpss/source/shared/memory"
 )
 
@@ -25,5 +26,10 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 	}
 	defer memory.Cleaner(plaintext)
 
-	return display(secret.Type, plaintext)
+	p, err := moon.Decode(secret.Type, plaintext)
+	if err != nil {
+		return err
+	}
+	p.Display()
+	return nil
 }

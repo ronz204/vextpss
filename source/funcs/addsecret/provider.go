@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"vextpss/source/funcs"
-	"vextpss/source/secrets"
+	"vextpss/source/secrets/core"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/terminal"
 )
 
 func run(ctx context.Context, name, secretType string, deps funcs.Deps) error {
-	if !secrets.IsKnownType(secretType) {
+	if !core.IsKnownType(secretType) {
 		return fmt.Errorf("unknown secret type %q — valid types: account, finance", secretType)
 	}
 
@@ -27,7 +27,7 @@ func run(ctx context.Context, name, secretType string, deps funcs.Deps) error {
 		return err
 	}
 
-	if err := deps.Repo.Create(ctx, secrets.Secret{
+	if err := deps.Repo.Create(ctx, core.Secret{
 		Name:      name,
 		Type:      secretType,
 		Encrypted: encrypted,
