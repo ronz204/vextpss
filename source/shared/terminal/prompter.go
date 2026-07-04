@@ -64,6 +64,60 @@ func (p *Prompter) ReadInteger(label string) (int, error) {
 	return n, nil
 }
 
+func (p *Prompter) ReadLineOrKeep(label, current string) (string, error) {
+	fmt.Fprintf(p.out, "%s [actual: %s]: ", label, current)
+	line, err := p.reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("read input: %w", err)
+	}
+	v := strings.TrimRight(line, "\r\n")
+	if v == "" {
+		return current, nil
+	}
+	return v, nil
+}
+
+func (p *Prompter) ReadSecretOrKeep(label string, current []byte) ([]byte, error) {
+	fmt.Fprintf(p.out, "%s [Enter para conservar]: ", label)
+	if f, ok := p.in.(*os.File); ok {
+		b, err := term.ReadPassword(int(f.Fd()))
+		fmt.Fprintln(p.out)
+		if err != nil {
+			return nil, err
+		}
+		if len(b) == 0 {
+			return current, nil
+		}
+		return b, nil
+	}
+	line, err := p.reader.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+	v := []byte(strings.TrimSpace(line))
+	if len(v) == 0 {
+		return current, nil
+	}
+	return v, nil
+}
+
+func (p *Prompter) ReadIntegerOrKeep(label string, current int) (int, error) {
+	fmt.Fprintf(p.out, "%s [actual: %d]: ", label, current)
+	line, err := p.reader.ReadString('\n')
+	if err != nil {
+		return 0, fmt.Errorf("read input: %w", err)
+	}
+	raw := strings.TrimRight(line, "\r\n")
+	if raw == "" {
+		return current, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a number", label)
+	}
+	return n, nil
+}
+
 func (p *Prompter) Confirm(prompt string) (bool, error) {
 	fmt.Fprintf(p.out, "%s [y/N]: ", prompt)
 	line, err := p.reader.ReadString('\n')

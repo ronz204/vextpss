@@ -5,10 +5,10 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"vextpss/source/secrets"
+	"vextpss/source/secrets/core"
 )
 
-func PrintSecretsTable(list []secrets.Secret) {
+func PrintSecretsTable(list []core.Secret) {
 	if len(list) == 0 {
 		Info("No secrets stored yet.")
 		return
