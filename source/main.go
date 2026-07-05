@@ -10,6 +10,7 @@ import (
 	"vextpss/source/funcs/dropsecret"
 	"vextpss/source/funcs/getsecrets"
 	"vextpss/source/funcs/listsecrets"
+	"vextpss/source/funcs/rensecret"
 	"vextpss/source/funcs/updsecret"
 	"vextpss/source/shared/cyphers/aesgcm"
 	"vextpss/source/shared/storages"
@@ -50,6 +51,7 @@ func main() {
 	root.AddCommand(dropsecret.NewCommand(deps))
 	root.AddCommand(getsecrets.NewCommand(deps))
 	root.AddCommand(listsecrets.NewCommand(deps))
+	root.AddCommand(rensecret.NewCommand(deps))
 	root.AddCommand(updsecret.NewCommand(deps))
 
 	if err := root.Execute(); err != nil {

@@ -43,6 +43,23 @@ func (r *GORMRepository) GetByName(ctx context.Context, name string) (core.Secre
 	return toSecret(rec), nil
 }
 
+func (r *GORMRepository) Rename(ctx context.Context, oldName, newName string) error {
+	result := r.db.WithContext(ctx).
+		Model(&SecretRecord{}).
+		Where("name = ?", oldName).
+		Updates(map[string]any{"name": newName})
+	if result.Error != nil {
+		if isDuplicate(result.Error) {
+			return core.ErrAlreadyExists
+		}
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return core.ErrNotFound
+	}
+	return nil
+}
+
 func (r *GORMRepository) Update(ctx context.Context, secret core.Secret) error {
 	result := r.db.WithContext(ctx).
 		Model(&SecretRecord{}).
