@@ -12,7 +12,7 @@ const (
 	charsetSymbols = "!@#$%^&*()_+-=[]{}|;:,.<>?"
 )
 
-func Generate(length int, useSymbols bool) (string, error) {
+func Generate(length int, useSymbols bool) ([]byte, error) {
 	charset := charsetLower + charsetUpper + charsetDigits
 	if useSymbols {
 		charset += charsetSymbols
@@ -24,9 +24,9 @@ func Generate(length int, useSymbols bool) (string, error) {
 	for i := range result {
 		idx, err := rand.Int(rand.Reader, max)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		result[i] = charset[idx.Int64()]
 	}
-	return string(result), nil
+	return result, nil
 }
