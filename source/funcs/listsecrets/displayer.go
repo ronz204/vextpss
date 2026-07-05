@@ -1,4 +1,4 @@
-package terminal
+package listsecrets
 
 import (
 	"fmt"
@@ -6,11 +6,12 @@ import (
 	"text/tabwriter"
 
 	"vextpss/source/secrets/core"
+	"vextpss/source/shared/terminal"
 )
 
-func PrintSecretsTable(list []core.Secret) {
+func printSecretsTable(list []core.Secret) {
 	if len(list) == 0 {
-		Info("No secrets stored yet.")
+		terminal.Info("No secrets stored yet.")
 		return
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)

@@ -14,5 +14,5 @@ func Info(msg string) {
 }
 
 func Error(msg string) {
-	fmt.Fprintf(os.Stderr, "[X] Error: %s\n", msg)
+	fmt.Fprintf(os.Stderr, "[X] %s\n", msg)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"vextpss/source/funcs"
-	"vextpss/source/shared/terminal"
 )
 
 func run(ctx context.Context, deps funcs.Deps) error {
@@ -13,6 +12,6 @@ func run(ctx context.Context, deps funcs.Deps) error {
 		return err
 	}
 
-	terminal.PrintSecretsTable(list)
+	printSecretsTable(list)
 	return nil
 }
