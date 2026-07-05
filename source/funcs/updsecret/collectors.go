@@ -7,65 +7,70 @@ import (
 	"vextpss/source/secrets/core"
 	"vextpss/source/secrets/moon/accounts"
 	"vextpss/source/secrets/moon/finances"
-	"vextpss/source/shared/memory"
 	"vextpss/source/shared/terminal"
 )
 
-func collect(secretType string, p *terminal.Prompter) (plaintext, master []byte, err error) {
-	fn, ok := collectors[secretType]
-	if !ok {
-		return nil, nil, fmt.Errorf("unknown secret type: %s", secretType)
-	}
+type payloadCollector func(*terminal.Prompter, []byte) (core.Payload, error)
 
-	payload, err := fn(p)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	master, err = p.ReadSecret("Master password")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	plaintext, err = json.Marshal(payload)
-	if err != nil {
-		memory.Cleaner(master)
-		return nil, nil, err
-	}
-
-	return plaintext, master, nil
+var collectors = map[string]payloadCollector{
+	core.TypeAccount: collectAccount,
+	core.TypeFinance: collectFinance,
 }
 
-func collectAccount(p *terminal.Prompter) (core.Payload, error) {
-	username, err := p.ReadLine("Username")
+func collect(secretType string, current []byte, p *terminal.Prompter) ([]byte, error) {
+	fn, ok := collectors[secretType]
+	if !ok {
+		return nil, fmt.Errorf("unknown secret type: %s", secretType)
+	}
+
+	payload, err := fn(p, current)
 	if err != nil {
 		return nil, err
 	}
-	password, err := p.ReadSecret("Password")
+
+	return json.Marshal(payload)
+}
+
+func collectAccount(p *terminal.Prompter, cur []byte) (core.Payload, error) {
+	var current accounts.Account
+	if err := json.Unmarshal(cur, &current); err != nil {
+		return nil, err
+	}
+
+	username, err := p.ReadLineOrKeep("Username", current.Username)
+	if err != nil {
+		return nil, err
+	}
+	password, err := p.ReadSecretOrKeep("Password", current.Password)
 	if err != nil {
 		return nil, err
 	}
 	return accounts.NewAccount(username, password)
 }
 
-func collectFinance(p *terminal.Prompter) (core.Payload, error) {
-	cardNumber, err := p.ReadLine("Card number")
+func collectFinance(p *terminal.Prompter, cur []byte) (core.Payload, error) {
+	var current finances.Finance
+	if err := json.Unmarshal(cur, &current); err != nil {
+		return nil, err
+	}
+
+	cardNumber, err := p.ReadLineOrKeep("Card number", current.Card.Number)
 	if err != nil {
 		return nil, err
 	}
-	cardPin, err := p.ReadSecret("Card PIN")
+	cardPin, err := p.ReadSecretOrKeep("Card PIN", current.Card.Pin)
 	if err != nil {
 		return nil, err
 	}
-	cardSecCode, err := p.ReadSecret("Security code")
+	cardSecCode, err := p.ReadSecretOrKeep("Security code", current.Card.SecurityCode)
 	if err != nil {
 		return nil, err
 	}
-	expMonth, err := p.ReadInteger("Expiration month (1-12)")
+	expMonth, err := p.ReadIntegerOrKeep("Expiration month (1-12)", current.Card.ExpirationMonth)
 	if err != nil {
 		return nil, err
 	}
-	expYear, err := p.ReadInteger("Expiration year")
+	expYear, err := p.ReadIntegerOrKeep("Expiration year", current.Card.ExpirationYear)
 	if err != nil {
 		return nil, err
 	}
@@ -75,19 +80,19 @@ func collectFinance(p *terminal.Prompter) (core.Payload, error) {
 		return nil, err
 	}
 
-	mobileUsername, err := p.ReadLine("Mobile banking username")
+	mobileUsername, err := p.ReadLineOrKeep("Mobile banking username", current.Mobile.Username)
 	if err != nil {
 		return nil, err
 	}
-	mobilePassword, err := p.ReadSecret("Mobile banking password")
+	mobilePassword, err := p.ReadSecretOrKeep("Mobile banking password", current.Mobile.Password)
 	if err != nil {
 		return nil, err
 	}
-	mobileVirtKey, err := p.ReadSecret("Virtual key")
+	mobileVirtKey, err := p.ReadSecretOrKeep("Virtual key", current.Mobile.VirtualKey)
 	if err != nil {
 		return nil, err
 	}
-	mobileCellphone, err := p.ReadLine("Cellphone")
+	mobileCellphone, err := p.ReadLineOrKeep("Cellphone", current.Mobile.Cellphone)
 	if err != nil {
 		return nil, err
 	}

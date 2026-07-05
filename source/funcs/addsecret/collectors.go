@@ -11,6 +11,13 @@ import (
 	"vextpss/source/shared/terminal"
 )
 
+type payloadCollector func(*terminal.Prompter) (core.Payload, error)
+
+var collectors = map[string]payloadCollector{
+	core.TypeAccount: collectAccount,
+	core.TypeFinance: collectFinance,
+}
+
 func collect(secretType string, p *terminal.Prompter) (plaintext, master []byte, err error) {
 	fn, ok := collectors[secretType]
 	if !ok {

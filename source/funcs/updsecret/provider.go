@@ -16,14 +16,25 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 		return err
 	}
 
-	plaintext, master, err := collect(existing.Type, deps.Prompter)
+	master, err := deps.Prompter.ReadSecret("Master password")
 	if err != nil {
 		return err
 	}
-	defer memory.Cleaner(plaintext)
 	defer memory.Cleaner(master)
 
-	encrypted, err := deps.Cryp.Encrypt(ctx, plaintext, master)
+	currentPlaintext, err := deps.Cryp.Decrypt(ctx, existing.Encrypted, master)
+	if err != nil {
+		return err
+	}
+	defer memory.Cleaner(currentPlaintext)
+
+	newPlaintext, err := collect(existing.Type, currentPlaintext, deps.Prompter)
+	if err != nil {
+		return err
+	}
+	defer memory.Cleaner(newPlaintext)
+
+	encrypted, err := deps.Cryp.Encrypt(ctx, newPlaintext, master)
 	if err != nil {
 		return err
 	}
