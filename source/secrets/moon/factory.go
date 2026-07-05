@@ -14,6 +14,11 @@ var registry = map[string]func() core.Payload{
 	core.TypeFinance: func() core.Payload { return &finances.Finance{} },
 }
 
+func IsKnownType(t string) bool {
+	_, ok := registry[t]
+	return ok
+}
+
 func Decode(secretType string, data []byte) (core.Payload, error) {
 	factory, ok := registry[secretType]
 	if !ok {

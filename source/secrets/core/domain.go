@@ -18,3 +18,8 @@ type Payload interface {
 	Display()
 	Validate() error
 }
+
+const (
+	TypeAccount = "account"
+	TypeFinance = "finance"
+)

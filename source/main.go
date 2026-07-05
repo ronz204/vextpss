@@ -40,9 +40,10 @@ func main() {
 	}
 
 	root := &cobra.Command{
-		Use:          "vext",
-		Short:        "A local, encrypted password manager",
-		SilenceUsage: true,
+		Use:           "vext",
+		Short:         "A local, encrypted password manager",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.AddCommand(addsecret.NewCommand(deps))
@@ -52,6 +53,7 @@ func main() {
 	root.AddCommand(updsecret.NewCommand(deps))
 
 	if err := root.Execute(); err != nil {
+		terminal.Error(err.Error())
 		os.Exit(1)
 	}
 }

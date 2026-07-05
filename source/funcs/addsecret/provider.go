@@ -6,12 +6,13 @@ import (
 
 	"vextpss/source/funcs"
 	"vextpss/source/secrets/core"
+	"vextpss/source/secrets/moon"
 	"vextpss/source/shared/memory"
 	"vextpss/source/shared/terminal"
 )
 
 func run(ctx context.Context, name, secretType string, deps funcs.Deps) error {
-	if !core.IsKnownType(secretType) {
+	if !moon.IsKnownType(secretType) {
 		return fmt.Errorf("unknown secret type %q — valid types: account, finance", secretType)
 	}
 
