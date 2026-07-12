@@ -4,6 +4,85 @@ Vext es un gestor de contraseñas local escrito en Go. No hay servidores, no hay
 
 ---
 
+## Comandos
+
+### Secretos
+
+```
+vext add <name> [-t type]     Agrega un secreto nuevo (tipo por defecto: account)
+vext get <name>               Muestra un secreto descifrado
+vext list                     Lista los secretos del space activo
+vext upd <name>               Actualiza un secreto (muestra valores actuales, Enter para conservar)
+vext drop <name>              Elimina un secreto
+vext ren <old> <new>          Renombra un secreto
+vext rota <name>              Rota la master password de un secreto
+```
+
+### Generador de contraseñas
+
+```
+vext gen [-l length] [-s]     Genera una contraseña criptográficamente segura
+```
+
+Flags:
+
+| Flag | Por defecto | Descripción |
+|---|---|---|
+| `-l`, `--length` | 20 | Longitud de la contraseña |
+| `-s`, `--symbols` | false | Incluir símbolos (`!@#$%^&*...`) |
+
+### Spaces _(próximamente)_
+
+Los spaces son namespaces lógicos para agrupar secretos. Funcionan como branches en git: siempre hay un space activo y todos los comandos operan sobre él sin flags adicionales.
+
+```
+vext use <space>              Cambia el space activo
+vext spaces                   Lista todos los spaces
+vext spaces add <name>        Crea un space
+vext spaces drop <name>       Elimina un space
+vext spaces ren <old> <new>   Renombra un space
+```
+
+La base de datos ya incluye las tablas `spaces` y `meta`, y crea un space `default` en el primer arranque. Los comandos estarán disponibles en la siguiente iteración.
+
+---
+
+## Tipos de secreto
+
+Vext usa un modelo polimórfico: todos los secretos comparten el mismo contenedor externo (`Secret`) y es solo dentro del blob cifrado donde la forma cambia según el tipo.
+
+### `account`
+Credencial de acceso estándar.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `username` | `string` | |
+| `password` | `[]byte` | se limpia de memoria tras su uso |
+
+### `finance`
+Datos financieros compuestos por dos partes.
+
+**Tarjeta (`card`)**
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `number` | `string` | |
+| `pin` | `[]byte` | se limpia de memoria tras su uso |
+| `security_code` | `[]byte` | se limpia de memoria tras su uso |
+| `expiration_month` | `int` | 1–12 |
+| `expiration_year` | `int` | |
+
+**Banca móvil (`mobile`)**
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `username` | `string` | |
+| `password` | `[]byte` | se limpia de memoria tras su uso |
+| `virtual_key` | `[]byte` | se limpia de memoria tras su uso |
+| `cellphone` | `string` | |
+
+---
+
 ## Cifrado
 
 El cifrado de cada secreto sigue un pipeline de dos etapas:
@@ -46,50 +125,16 @@ La clave derivada se sobreescribe con ceros en cuanto termina su uso (`defer mem
 
 ---
 
-## Tipos de secreto
-
-Vext usa un modelo polimórfico: todos los secretos comparten el mismo contenedor externo (`Secret`) y es solo dentro del blob cifrado donde la forma cambia según el tipo. Agregar un tipo nuevo no requiere tocar el modelo de almacenamiento.
-
-### `account`
-Credencial de acceso estándar.
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `username` | `string` | |
-| `password` | `[]byte` | se limpia de memoria tras su uso |
-
-### `finance`
-Datos financieros compuestos por dos partes.
-
-**Tarjeta (`card`)**
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `number` | `string` | |
-| `pin` | `[]byte` | se limpia de memoria tras su uso |
-| `security_code` | `[]byte` | se limpia de memoria tras su uso |
-| `expiration_month` | `int` | 1–12 |
-| `expiration_year` | `int` | |
-
-**Banca móvil (`mobile`)**
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `username` | `string` | |
-| `password` | `[]byte` | se limpia de memoria tras su uso |
-| `virtual_key` | `[]byte` | se limpia de memoria tras su uso |
-| `cellphone` | `string` | |
-
----
-
 ## Dominio
 
-El paquete `secrets/` es el núcleo del dominio — no importa nada de SQLite, GORM, ni detalles de cifrado. Solo define contratos:
+El paquete `secrets/core/` es el núcleo del dominio — no importa nada de SQLite, GORM, ni detalles de cifrado. Solo define contratos:
 
-- **`Secret`** — metadatos (nombre, tipo, fechas) + `Encrypted` opaco.
+- **`Secret`** — metadatos (nombre, tipo, space, fechas) + `Encrypted` opaco.
 - **`Payload`** — interfaz que implementa cada tipo de secreto (`Display()`, `Validate()`).
 - **`Encryptor`** — interfaz de cifrado; la implementación concreta (`aesgcm`) vive en `shared/`.
-- **`Repository`** — interfaz de persistencia; la implementación concreta vive en `infra/`.
+- **`SecretRepository`** — interfaz de persistencia para secretos.
+- **`SpaceRepository`** — interfaz de persistencia para spaces.
+- **`StateRepository`** — interfaz para leer y escribir el space activo.
 
 ---
 
@@ -97,20 +142,52 @@ El paquete `secrets/` es el núcleo del dominio — no importa nada de SQLite, G
 
 ```
 source/
-├── secrets/              # dominio puro
-│   ├── account/          # agregado: Account + sentinels
-│   ├── finances/         # agregado: Finance (Card + Mobile) + sentinels
-│   ├── domain.go         # Secret, Payload
-│   ├── encryptor.go      # Encrypted, Encryptor, errores de cifrado
-│   ├── repository.go     # Repository
-│   └── types.go          # constantes de tipo e IsKnownType
+├── main.go                        # wiring: deps + cobra root
+├── funcs/
+│   ├── deps.go                    # Deps: repos, cypher, prompter, ActiveSpace
+│   └── secrets/
+│       ├── addsecret/             # vext add
+│       ├── updsecret/             # vext upd
+│       ├── getsecrets/            # vext get
+│       ├── listsecrets/           # vext list
+│       ├── dropsecret/            # vext drop
+│       ├── rensecret/             # vext ren
+│       ├── rotasecret/            # vext rota
+│       └── gensecret/             # vext gen
+├── secrets/
+│   ├── core/
+│   │   ├── secrets.go             # Secret, Payload, SecretRepository
+│   │   ├── encryptor.go           # Encrypted, Encryptor
+│   │   ├── space.go               # Space, SpaceRepository
+│   │   ├── state.go               # StateRepository
+│   │   └── shapes.go              # constantes de tipo e IsKnownType
+│   └── moon/                      # payloads concretos
+│       ├── accounts/              # Account{Username, Password}
+│       ├── finances/              # Finance{Card, Mobile}
+│       └── factory.go
 └── shared/
-    ├── crypto/aesgcm/    # implementación concreta: AES-256-GCM + Argon2id
-    └── memory/           # Cleaner — limpieza segura de slices sensibles
+    ├── cyphers/aesgcm/            # AES-256-GCM + Argon2id
+    ├── storages/                  # GORM + SQLite
+    │   ├── secrets_schema.go
+    │   ├── secrets_mapper.go
+    │   ├── secrets_repository.go
+    │   ├── spaces_schema.go       # SpaceRecord + MetaRecord
+    │   ├── spaces_mapper.go
+    │   ├── spaces_repository.go
+    │   ├── state_schema.go
+    │   ├── state_mapper.go
+    │   ├── state_repository.go
+    │   ├── initalizer.go
+    │   └── configs.go
+    ├── terminal/                  # Prompter, helpers (Success, Info, Error)
+    ├── memory/                    # Cleaner — limpieza segura de slices sensibles
+    └── passgen/                   # generador criptográfico de contraseñas
 
 context/
-├── concepts.md           # criptografía y decisiones de diseño (leer primero)
-└── modeling.md           # modelado del dominio en código
+├── concepts.md                    # criptografía y decisiones de diseño
+├── modeling.md                    # modelado del dominio en código
+├── database.md                    # SQLite + GORM, SecretRecord
+└── usecases.md                    # flujo de cada comando
 ```
 
 ---
