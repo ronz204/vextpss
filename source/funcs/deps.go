@@ -6,7 +6,10 @@ import (
 )
 
 type Deps struct {
-	Repo     core.Repository
-	Cryp     core.Encryptor
-	Prompter *terminal.Prompter
+	Prompter    *terminal.Prompter
+	SecretRepo  core.SecretRepository
+	SpaceRepo   core.SpaceRepository
+	StateRepo   core.StateRepository
+	Cypher      core.Encryptor
+	ActiveSpace string
 }

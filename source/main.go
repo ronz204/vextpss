@@ -28,9 +28,12 @@ func loadDeps() (funcs.Deps, error) {
 		return funcs.Deps{}, err
 	}
 	return funcs.Deps{
-		Repo:     storages.New(db),
-		Cryp:     aesgcm.New(aesgcm.DefaultConfig()),
-		Prompter: terminal.NewPrompter(),
+		SecretRepo:  storages.NewSecrets(db),
+		SpaceRepo:   storages.NewSpaces(db),
+		StateRepo:   storages.NewState(db),
+		Cypher:      aesgcm.New(aesgcm.DefaultConfig()),
+		Prompter:    terminal.NewPrompter(),
+		ActiveSpace: storages.DefaultActiveSpace,
 	}, nil
 }
 
