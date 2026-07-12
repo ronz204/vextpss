@@ -11,7 +11,7 @@ import (
 )
 
 func run(ctx context.Context, name string, deps funcs.Deps) error {
-	existing, err := deps.Repo.GetByName(ctx, name)
+	existing, err := deps.SecretRepo.GetByName(ctx, deps.ActiveSpace, name)
 	if err != nil {
 		return err
 	}
@@ -22,7 +22,7 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 	}
 	defer memory.Cleaner(currentMaster)
 
-	plaintext, err := deps.Cryp.Decrypt(ctx, existing.Encrypted, currentMaster)
+	plaintext, err := deps.Cypher.Decrypt(ctx, existing.Encrypted, currentMaster)
 	if err != nil {
 		return err
 	}
@@ -34,12 +34,13 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 	}
 	defer memory.Cleaner(newMaster)
 
-	encrypted, err := deps.Cryp.Encrypt(ctx, plaintext, newMaster)
+	encrypted, err := deps.Cypher.Encrypt(ctx, plaintext, newMaster)
 	if err != nil {
 		return err
 	}
 
-	if err := deps.Repo.Update(ctx, core.Secret{
+	if err := deps.SecretRepo.Update(ctx, core.Secret{
+		Space:     deps.ActiveSpace,
 		Name:      name,
 		Type:      existing.Type,
 		Encrypted: encrypted,

@@ -23,12 +23,13 @@ func run(ctx context.Context, name, secretType string, deps funcs.Deps) error {
 	defer memory.Cleaner(plaintext)
 	defer memory.Cleaner(master)
 
-	encrypted, err := deps.Cryp.Encrypt(ctx, plaintext, master)
+	encrypted, err := deps.Cypher.Encrypt(ctx, plaintext, master)
 	if err != nil {
 		return err
 	}
 
-	if err := deps.Repo.Create(ctx, core.Secret{
+	if err := deps.SecretRepo.Create(ctx, core.Secret{
+		Space:     deps.ActiveSpace,
 		Name:      name,
 		Type:      secretType,
 		Encrypted: encrypted,

@@ -9,7 +9,7 @@ import (
 )
 
 func run(ctx context.Context, oldName, newName string, deps funcs.Deps) error {
-	if err := deps.Repo.Rename(ctx, oldName, newName); err != nil {
+	if err := deps.SecretRepo.Rename(ctx, deps.ActiveSpace, oldName, newName); err != nil {
 		return err
 	}
 

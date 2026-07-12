@@ -9,7 +9,7 @@ import (
 )
 
 func run(ctx context.Context, name string, deps funcs.Deps) error {
-	if _, err := deps.Repo.GetByName(ctx, name); err != nil {
+	if _, err := deps.SecretRepo.GetByName(ctx, deps.ActiveSpace, name); err != nil {
 		return err
 	}
 
@@ -21,7 +21,7 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 		return nil
 	}
 
-	if err := deps.Repo.Delete(ctx, name); err != nil {
+	if err := deps.SecretRepo.Delete(ctx, deps.ActiveSpace, name); err != nil {
 		return err
 	}
 

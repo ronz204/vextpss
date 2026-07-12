@@ -9,7 +9,7 @@ import (
 )
 
 func run(ctx context.Context, name string, deps funcs.Deps) error {
-	secret, err := deps.Repo.GetByName(ctx, name)
+	secret, err := deps.SecretRepo.GetByName(ctx, deps.ActiveSpace, name)
 	if err != nil {
 		return err
 	}
@@ -20,7 +20,7 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 	}
 	defer memory.Cleaner(master)
 
-	plaintext, err := deps.Cryp.Decrypt(ctx, secret.Encrypted, master)
+	plaintext, err := deps.Cypher.Decrypt(ctx, secret.Encrypted, master)
 	if err != nil {
 		return err
 	}
