@@ -8,6 +8,7 @@ import (
 	"vextpss/source/funcs"
 	"vextpss/source/funcs/secrets/addsecret"
 	"vextpss/source/funcs/secrets/dropsecret"
+	"vextpss/source/funcs/secrets/gensecret"
 	"vextpss/source/funcs/secrets/getsecrets"
 	"vextpss/source/funcs/secrets/listsecrets"
 	"vextpss/source/funcs/secrets/rensecret"
@@ -52,6 +53,7 @@ func main() {
 	}
 
 	root.AddCommand(addsecret.NewCommand(deps))
+	root.AddCommand(gensecret.NewCommand())
 	root.AddCommand(dropsecret.NewCommand(deps))
 	root.AddCommand(getsecrets.NewCommand(deps))
 	root.AddCommand(listsecrets.NewCommand(deps))
