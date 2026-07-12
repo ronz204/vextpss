@@ -4,7 +4,8 @@ import "time"
 
 type SecretRecord struct {
 	ID         int64     `gorm:"primaryKey;autoIncrement"`
-	Name       string    `gorm:"uniqueIndex;not null"`
+	SpaceID    int64     `gorm:"not null;default:0;uniqueIndex:idx_space_name"`
+	Name       string    `gorm:"not null;uniqueIndex:idx_space_name"`
 	Type       string    `gorm:"not null"`
 	Algorithm  string    `gorm:"not null"`
 	Ciphertext []byte    `gorm:"not null;type:blob"`

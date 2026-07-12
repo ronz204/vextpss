@@ -2,8 +2,9 @@ package storages
 
 import "vextpss/source/secrets/core"
 
-func toRecord(s core.Secret) SecretRecord {
+func toRecord(s core.Secret, spaceID int64) SecretRecord {
 	return SecretRecord{
+		SpaceID:    spaceID,
 		Name:       s.Name,
 		Type:       s.Type,
 		Algorithm:  s.Encrypted.Algorithm,
@@ -12,11 +13,12 @@ func toRecord(s core.Secret) SecretRecord {
 	}
 }
 
-func toSecret(r SecretRecord) core.Secret {
+func toSecret(r SecretRecord, spaceName string) core.Secret {
 	return core.Secret{
-		ID:   r.ID,
-		Name: r.Name,
-		Type: r.Type,
+		ID:    r.ID,
+		Space: spaceName,
+		Name:  r.Name,
+		Type:  r.Type,
 		Encrypted: core.Encrypted{
 			Algorithm:  r.Algorithm,
 			Ciphertext: r.Ciphertext,
