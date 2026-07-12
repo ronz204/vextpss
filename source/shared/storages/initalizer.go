@@ -19,7 +19,14 @@ func Init(dbPath string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&SecretRecord{}); err != nil {
+	if err := db.AutoMigrate(&SpaceRecord{}, &MetaRecord{}, &SecretRecord{}); err != nil {
+		return nil, err
+	}
+	if err := db.FirstOrCreate(&SpaceRecord{}, SpaceRecord{Name: "default"}).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Where(MetaRecord{Key: activeSpaceKey}).
+		FirstOrCreate(&MetaRecord{Key: activeSpaceKey, Value: "default"}).Error; err != nil {
 		return nil, err
 	}
 	return db, nil

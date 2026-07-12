@@ -5,7 +5,10 @@ import (
 	"path/filepath"
 )
 
-const dbFileName = "vext.db"
+const (
+	dbFileName          = "vext.db"
+	DefaultActiveSpace  = "default"
+)
 
 func DefaultDBPath() (string, error) {
 	home, err := os.UserHomeDir()
