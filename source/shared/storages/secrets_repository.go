@@ -3,9 +3,9 @@ package storages
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"gorm.io/gorm"
+	"modernc.org/sqlite"
 
 	"vextpss/source/secrets/core"
 )
@@ -21,8 +21,7 @@ func NewSecrets(db *gorm.DB) *GORMRepository {
 }
 
 func (r *GORMRepository) resolveSpaceID(ctx context.Context, space string) (int64, error) {
-	var rec SpaceRecord
-	err := r.db.WithContext(ctx).Where("name = ?", space).First(&rec).Error
+	rec, err := gorm.G[SpaceRecord](r.db).Where("name = ?", space).Take(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, core.ErrSpaceNotFound
 	}
@@ -38,7 +37,7 @@ func (r *GORMRepository) Create(ctx context.Context, secret core.Secret) error {
 		return err
 	}
 	rec := toRecord(secret, spaceID)
-	if err := r.db.WithContext(ctx).Create(&rec).Error; err != nil {
+	if err := gorm.G[SecretRecord](r.db).Create(ctx, &rec); err != nil {
 		if isDuplicate(err) {
 			return core.ErrAlreadyExists
 		}
@@ -52,10 +51,9 @@ func (r *GORMRepository) GetByName(ctx context.Context, space, name string) (cor
 	if err != nil {
 		return core.Secret{}, err
 	}
-	var rec SecretRecord
-	err = r.db.WithContext(ctx).
+	rec, err := gorm.G[SecretRecord](r.db).
 		Where("space_id = ? AND name = ?", spaceID, name).
-		First(&rec).Error
+		Take(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return core.Secret{}, core.ErrNotFound
 	}
@@ -93,17 +91,16 @@ func (r *GORMRepository) Rename(ctx context.Context, space, oldName, newName str
 	if err != nil {
 		return err
 	}
-	result := r.db.WithContext(ctx).
-		Model(&SecretRecord{}).
+	n, err := gorm.G[SecretRecord](r.db).
 		Where("space_id = ? AND name = ?", spaceID, oldName).
-		Updates(map[string]any{"name": newName})
-	if result.Error != nil {
-		if isDuplicate(result.Error) {
+		Update(ctx, "name", newName)
+	if err != nil {
+		if isDuplicate(err) {
 			return core.ErrAlreadyExists
 		}
-		return result.Error
+		return err
 	}
-	if result.RowsAffected == 0 {
+	if n == 0 {
 		return core.ErrNotFound
 	}
 	return nil
@@ -114,29 +111,28 @@ func (r *GORMRepository) Delete(ctx context.Context, space, name string) error {
 	if err != nil {
 		return err
 	}
-	result := r.db.WithContext(ctx).
+	n, err := gorm.G[SecretRecord](r.db).
 		Where("space_id = ? AND name = ?", spaceID, name).
-		Delete(&SecretRecord{})
-	if result.Error != nil {
-		return result.Error
+		Delete(ctx)
+	if err != nil {
+		return err
 	}
-	if result.RowsAffected == 0 {
+	if n == 0 {
 		return core.ErrNotFound
 	}
 	return nil
 }
 
 func (r *GORMRepository) List(ctx context.Context, space string) ([]core.Secret, error) {
-	var records []SecretRecord
-	q := r.db.WithContext(ctx).
-		Select("id, space_id, name, type, created_at, updated_at")
-
 	if space != "" {
 		spaceID, err := r.resolveSpaceID(ctx, space)
 		if err != nil {
 			return nil, err
 		}
-		if err := q.Where("space_id = ?", spaceID).Find(&records).Error; err != nil {
+		records, err := gorm.G[SecretRecord](r.db).
+			Select("id, space_id, name, type, created_at, updated_at").
+			Where("space_id = ?", spaceID).Find(ctx)
+		if err != nil {
 			return nil, err
 		}
 		items := make([]core.Secret, len(records))
@@ -146,11 +142,13 @@ func (r *GORMRepository) List(ctx context.Context, space string) ([]core.Secret,
 		return items, nil
 	}
 
-	if err := q.Find(&records).Error; err != nil {
+	records, err := gorm.G[SecretRecord](r.db).
+		Select("id, space_id, name, type, created_at, updated_at").Find(ctx)
+	if err != nil {
 		return nil, err
 	}
-	var spaceRecords []SpaceRecord
-	if err := r.db.WithContext(ctx).Find(&spaceRecords).Error; err != nil {
+	spaceRecords, err := gorm.G[SpaceRecord](r.db).Find(ctx)
+	if err != nil {
 		return nil, err
 	}
 	spaceNames := make(map[int64]string, len(spaceRecords))
@@ -165,5 +163,6 @@ func (r *GORMRepository) List(ctx context.Context, space string) ([]core.Secret,
 }
 
 func isDuplicate(err error) bool {
-	return strings.Contains(err.Error(), "UNIQUE constraint failed")
+	var sqliteErr *sqlite.Error
+	return errors.As(err, &sqliteErr) && sqliteErr.Code() == 2067 // SQLITE_CONSTRAINT_UNIQUE
 }

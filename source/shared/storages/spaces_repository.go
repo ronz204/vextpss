@@ -21,7 +21,7 @@ func NewSpaces(db *gorm.DB) *GORMSpaceRepository {
 
 func (r *GORMSpaceRepository) Create(ctx context.Context, name string) error {
 	rec := SpaceRecord{Name: name}
-	if err := r.db.WithContext(ctx).Create(&rec).Error; err != nil {
+	if err := gorm.G[SpaceRecord](r.db).Create(ctx, &rec); err != nil {
 		if isDuplicate(err) {
 			return core.ErrSpaceAlreadyExists
 		}
@@ -31,8 +31,7 @@ func (r *GORMSpaceRepository) Create(ctx context.Context, name string) error {
 }
 
 func (r *GORMSpaceRepository) GetByName(ctx context.Context, name string) (core.Space, error) {
-	var rec SpaceRecord
-	err := r.db.WithContext(ctx).Where("name = ?", name).First(&rec).Error
+	rec, err := gorm.G[SpaceRecord](r.db).Where("name = ?", name).Take(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return core.Space{}, core.ErrSpaceNotFound
 	}
@@ -43,36 +42,33 @@ func (r *GORMSpaceRepository) GetByName(ctx context.Context, name string) (core.
 }
 
 func (r *GORMSpaceRepository) Rename(ctx context.Context, oldName, newName string) error {
-	result := r.db.WithContext(ctx).
-		Model(&SpaceRecord{}).
-		Where("name = ?", oldName).
-		Updates(map[string]any{"name": newName})
-	if result.Error != nil {
-		if isDuplicate(result.Error) {
+	n, err := gorm.G[SpaceRecord](r.db).Where("name = ?", oldName).Update(ctx, "name", newName)
+	if err != nil {
+		if isDuplicate(err) {
 			return core.ErrSpaceAlreadyExists
 		}
-		return result.Error
+		return err
 	}
-	if result.RowsAffected == 0 {
+	if n == 0 {
 		return core.ErrSpaceNotFound
 	}
 	return nil
 }
 
 func (r *GORMSpaceRepository) Delete(ctx context.Context, name string) error {
-	result := r.db.WithContext(ctx).Where("name = ?", name).Delete(&SpaceRecord{})
-	if result.Error != nil {
-		return result.Error
+	n, err := gorm.G[SpaceRecord](r.db).Where("name = ?", name).Delete(ctx)
+	if err != nil {
+		return err
 	}
-	if result.RowsAffected == 0 {
+	if n == 0 {
 		return core.ErrSpaceNotFound
 	}
 	return nil
 }
 
 func (r *GORMSpaceRepository) List(ctx context.Context) ([]core.Space, error) {
-	var records []SpaceRecord
-	if err := r.db.WithContext(ctx).Find(&records).Error; err != nil {
+	records, err := gorm.G[SpaceRecord](r.db).Find(ctx)
+	if err != nil {
 		return nil, err
 	}
 	spaces := make([]core.Space, len(records))
