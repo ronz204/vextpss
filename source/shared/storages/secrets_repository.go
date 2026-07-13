@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
-	"modernc.org/sqlite"
 
 	"vextpss/source/secrets/core"
 )
@@ -163,6 +162,7 @@ func (r *GORMRepository) List(ctx context.Context, space string) ([]core.Secret,
 }
 
 func isDuplicate(err error) bool {
-	var sqliteErr *sqlite.Error
-	return errors.As(err, &sqliteErr) && sqliteErr.Code() == 2067 // SQLITE_CONSTRAINT_UNIQUE
+	type coder interface{ Code() int }
+	var e coder
+	return errors.As(err, &e) && e.Code() == 2067 // SQLITE_CONSTRAINT_UNIQUE
 }
