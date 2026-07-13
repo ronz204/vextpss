@@ -1,6 +1,10 @@
 package storages
 
-import "time"
+import (
+	"time"
+
+	"vextpss/source/secrets/core"
+)
 
 type SpaceRecord struct {
 	ID        int64     `gorm:"primaryKey;autoIncrement"`
@@ -9,3 +13,11 @@ type SpaceRecord struct {
 }
 
 func (SpaceRecord) TableName() string { return "spaces" }
+
+func toSpace(r SpaceRecord) core.Space {
+	return core.Space{
+		ID:        r.ID,
+		Name:      r.Name,
+		CreatedAt: r.CreatedAt,
+	}
+}
