@@ -29,7 +29,7 @@ func run(ctx context.Context, name, secretType string, deps funcs.Deps) error {
 	}
 
 	if err := deps.SecretRepo.Create(ctx, core.Secret{
-		Space:     deps.ActiveSpace,
+		Space:     deps.State.ActiveSpace,
 		Name:      name,
 		Type:      secretType,
 		Encrypted: encrypted,

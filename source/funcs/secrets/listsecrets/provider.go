@@ -7,7 +7,7 @@ import (
 )
 
 func run(ctx context.Context, deps funcs.Deps) error {
-	list, err := deps.SecretRepo.List(ctx, deps.ActiveSpace)
+	list, err := deps.SecretRepo.List(ctx, deps.State.ActiveSpace)
 	if err != nil {
 		return err
 	}

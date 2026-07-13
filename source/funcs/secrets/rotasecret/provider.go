@@ -11,7 +11,7 @@ import (
 )
 
 func run(ctx context.Context, name string, deps funcs.Deps) error {
-	existing, err := deps.SecretRepo.GetByName(ctx, deps.ActiveSpace, name)
+	existing, err := deps.SecretRepo.GetByName(ctx, deps.State.ActiveSpace, name)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func run(ctx context.Context, name string, deps funcs.Deps) error {
 	}
 
 	if err := deps.SecretRepo.Update(ctx, core.Secret{
-		Space:     deps.ActiveSpace,
+		Space:     deps.State.ActiveSpace,
 		Name:      name,
 		Type:      existing.Type,
 		Encrypted: encrypted,

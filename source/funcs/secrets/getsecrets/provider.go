@@ -9,7 +9,7 @@ import (
 )
 
 func run(ctx context.Context, name string, deps funcs.Deps) error {
-	secret, err := deps.SecretRepo.GetByName(ctx, deps.ActiveSpace, name)
+	secret, err := deps.SecretRepo.GetByName(ctx, deps.State.ActiveSpace, name)
 	if err != nil {
 		return err
 	}
