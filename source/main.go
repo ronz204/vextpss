@@ -14,6 +14,8 @@ import (
 	"vextpss/source/funcs/secrets/rensecret"
 	"vextpss/source/funcs/secrets/rotasecret"
 	"vextpss/source/funcs/secrets/updsecret"
+	"vextpss/source/funcs/spaces"
+	"vextpss/source/funcs/spaces/usespace"
 	"vextpss/source/shared/cyphers/aesgcm"
 	"vextpss/source/shared/storages"
 	"vextpss/source/shared/terminal"
@@ -60,6 +62,8 @@ func main() {
 	root.AddCommand(rensecret.NewCommand(deps))
 	root.AddCommand(rotasecret.NewCommand(deps))
 	root.AddCommand(updsecret.NewCommand(deps))
+	root.AddCommand(spaces.NewCommand(deps))
+	root.AddCommand(usespace.NewCommand(deps))
 
 	if err := root.Execute(); err != nil {
 		terminal.Error(err.Error())
