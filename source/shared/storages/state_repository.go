@@ -2,7 +2,6 @@ package storages
 
 import (
 	"context"
-	"errors"
 
 	"gorm.io/gorm"
 
@@ -10,8 +9,6 @@ import (
 )
 
 var _ core.StateRepository = (*GORMStateRepository)(nil)
-
-const activeSpaceKey = "active:space"
 
 type GORMStateRepository struct {
 	db *gorm.DB
@@ -21,21 +18,19 @@ func NewState(db *gorm.DB) *GORMStateRepository {
 	return &GORMStateRepository{db: db}
 }
 
-func (r *GORMStateRepository) GetActiveSpace(ctx context.Context) (string, error) {
-	var rec MetaRecord
-	err := r.db.WithContext(ctx).Where("key = ?", activeSpaceKey).First(&rec).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", nil
+func (r *GORMStateRepository) Load(ctx context.Context) (core.State, error) {
+	var records []MetaRecord
+	if err := r.db.WithContext(ctx).Find(&records).Error; err != nil {
+		return core.State{}, err
 	}
-	if err != nil {
-		return "", err
-	}
-	return toActiveSpace(rec), nil
+	return toState(records), nil
 }
 
-func (r *GORMStateRepository) SetActiveSpace(ctx context.Context, name string) error {
-	return r.db.WithContext(ctx).Save(&MetaRecord{
-		Key:   activeSpaceKey,
-		Value: name,
-	}).Error
+func (r *GORMStateRepository) Save(ctx context.Context, state core.State) error {
+	for _, rec := range fromState(state) {
+		if err := r.db.WithContext(ctx).Save(&rec).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
