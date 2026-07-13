@@ -24,17 +24,17 @@ func loadDeps() (funcs.Deps, error) {
 	if err != nil {
 		return funcs.Deps{}, err
 	}
-	db, err := storages.Init(dbPath)
+	db, state, err := storages.Init(dbPath)
 	if err != nil {
 		return funcs.Deps{}, err
 	}
 	return funcs.Deps{
-		SecretRepo:  storages.NewSecrets(db),
-		SpaceRepo:   storages.NewSpaces(db),
-		StateRepo:   storages.NewState(db),
-		Cypher:      aesgcm.New(aesgcm.DefaultConfig()),
-		Prompter:    terminal.NewPrompter(),
-		ActiveSpace: storages.DefaultActiveSpace,
+		SecretRepo: storages.NewSecrets(db),
+		SpaceRepo:  storages.NewSpaces(db),
+		StateRepo:  storages.NewState(db),
+		Cypher:     aesgcm.New(aesgcm.DefaultConfig()),
+		Prompter:   terminal.NewPrompter(),
+		State:      state,
 	}, nil
 }
 
